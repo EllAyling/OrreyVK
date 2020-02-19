@@ -18,6 +18,15 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\OrreyVk.h" />
+    <ClInclude Include="src\Vulkan.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\OrreyVk.cpp" />
+    <ClCompile Include="src\Vulkan.cpp" />
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{8DE79B7B-DDDC-4D97-95B1-BC846F0650EE}</ProjectGuid>
@@ -144,15 +153,6 @@
       <AdditionalDependencies>vulkan-1.lib;glfw3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="main.cpp" />
-    <ClCompile Include="OrreyVk.cpp" />
-    <ClCompile Include="Vulkan.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="OrreyVk.h" />
-    <ClInclude Include="Vulkan.h" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
