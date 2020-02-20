@@ -13,23 +13,24 @@ void OrreyVk::initWindow() {
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-	window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
+	m_window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
 }
 
 void OrreyVk::initVulkan() {
-	m_vulkan.Init();
+	m_vulkan.Init(m_window);
 }
 
 void OrreyVk::mainLoop() {
-	while (!glfwWindowShouldClose(window)) {
+	while (!glfwWindowShouldClose(m_window)) {
 		glfwPollEvents();
+		m_vulkan.RenderFrame();
 	}
 }
 
 void OrreyVk::cleanup() {
 	m_vulkan.Cleanup();
 
-	glfwDestroyWindow(window);
+	glfwDestroyWindow(m_window);
 
 	glfwTerminate();
 }

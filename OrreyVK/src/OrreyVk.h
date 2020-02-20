@@ -3,10 +3,8 @@
 #ifndef ORREYVK_H
 #define ORREYVK_H
 
-#include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
 #include "Vulkan.h"
-
 
 class OrreyVk {
 public:
@@ -17,7 +15,7 @@ public:
 	void cleanup();
 
 private:
-	GLFWwindow * window;
+	GLFWwindow * m_window;
 	Vulkan m_vulkan;
 
 };
