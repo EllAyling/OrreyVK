@@ -14,6 +14,11 @@ std::vector<vk::CommandBuffer> VulkanCommandPool::AllocateCommandBuffers(uint32_
 	return commandBuffers;
 }
 
+void VulkanCommandPool::FreeCommandBuffers(vk::ArrayProxy<const vk::CommandBuffer> commandBuffers)
+{
+	device.freeCommandBuffers(commandPool, commandBuffers);
+}
+
 void VulkanCommandPool::Destroy()
 {
 	device.destroyCommandPool(commandPool);

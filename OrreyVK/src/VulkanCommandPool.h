@@ -12,15 +12,16 @@ private:
 
 public:
 	VulkanCommandPool() {};
-	VulkanCommandPool(vk::Device device, uint32_t queueFamily)
+	VulkanCommandPool(vk::Device device, uint32_t queueFamily, vk::CommandPoolCreateFlagBits flags)
 	{
 		this->device = device;
-		vk::CommandPoolCreateInfo commandPoolInfo = vk::CommandPoolCreateInfo(vk::CommandPoolCreateFlagBits::eResetCommandBuffer, queueFamily);
+		vk::CommandPoolCreateInfo commandPoolInfo = vk::CommandPoolCreateInfo(flags, queueFamily);
 		commandPool = device.createCommandPool(commandPoolInfo);
 	}
 
 	vk::CommandBuffer AllocateCommandBuffer();
 	std::vector<vk::CommandBuffer> AllocateCommandBuffers(uint32_t count);
+	void FreeCommandBuffers(vk::ArrayProxy<const vk::CommandBuffer> commandBuffers);
 	void Destroy();
 };
 

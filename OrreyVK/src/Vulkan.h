@@ -29,18 +29,12 @@ protected:
 		VulkanSwapchain swapchain;
 		GLFWwindow* window;
 		vk::Queue queueGraphics;
+		vk::Queue queueCompute;
+		vk::Queue queueTransfer;
+		
+		VulkanCommandPool commandPoolTransfer;
 
-		vk::RenderPass renderpass;
-		std::vector<vk::Framebuffer> frameBuffers;
-
-		vk::PipelineLayout pipelineLayout;
-		vk::Pipeline pipeline;
-
-		VulkanCommandPool commandPool;
-		std::vector<vk::CommandBuffer> commandBuffers;
-
-		vk::DescriptorSetLayout descriptorSetLayout;
-		vk::DescriptorSet descriptorSet;
+		vk::DescriptorPool descriptorPool;
 
 		std::vector <vk::Semaphore> semaphoreImageAquired;
 		std::vector <vk::Semaphore> semaphoreRender;
@@ -52,18 +46,49 @@ protected:
 	std::unique_ptr<VulkanResources> m_vulkanResources;
 	VulkanTools::QueueFamilies m_queueIDs;
 	uint32_t m_frameID = 0;
+	SolidSphere m_sphere;
 
-	//Vertex layout
-	struct Vertex {
-		float position[3];
-		float color[3];
-	};
+	struct {
+		struct {
+			glm::mat4 projection;
+			glm::mat4 model;
+			glm::mat4 view;
+		} ubo;
+
+		vk::Buffer uniformBuffer;
+		vk::DeviceMemory uniformBufferMemory;
+		vk::DescriptorSetLayout descriptorSetLayout;
+		vk::DescriptorSet descriptorSet;
+		vk::PipelineLayout pipelineLayout;
+		vk::Pipeline pipeline;
+
+		VulkanCommandPool commandPool;
+		std::vector<vk::CommandBuffer> commandBuffers;
+		vk::RenderPass renderpass;
+		std::vector<vk::Framebuffer> frameBuffers;
+
+	} m_graphics;
+
+	struct {
+		vk::Buffer storageBuffer;
+		vk::Buffer uniformBuffer;
+		VulkanCommandPool commandPool;
+		vk::CommandBuffer cmdBuffer;
+		vk::DescriptorSetLayout descriptorSetLayout;
+		vk::DescriptorSet descriptorSet;
+		vk::PipelineLayout pipelineLayout;
+		vk::Pipeline pipeline;
+		struct computeUbo {
+			float deltaT;
+			int32_t planetCount;
+		} ubo;
+	} m_compute;
 
 	//Vertex buffer
 	struct {
 		vk::DeviceMemory memory;
 		vk::Buffer buffer;
-	} m_vertices;
+	} m_bufferVertex;
 
 	// Index buffer
 	struct
@@ -71,7 +96,7 @@ protected:
 		vk::DeviceMemory memory;
 		vk::Buffer buffer;
 		uint32_t count;
-	} m_indices;
+	} m_bufferIndex;
 
 	// Uniform buffer block object
 	struct {
@@ -79,12 +104,6 @@ protected:
 		vk::Buffer buffer;
 		vk::DescriptorBufferInfo descriptor;
 	}  m_uniformBufferVS;
-
-	struct {
-		glm::mat4 projectionMatrix;
-		glm::mat4 modelMatrix;
-		glm::mat4 viewMatrix;
-	} uboVS;
 
 	uint32_t GetMemoryTypeIndex(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
 
@@ -99,16 +118,27 @@ protected:
 	void CreateCommandPool();
 	void CreateCommandBuffers();
 	void CreateFencesAndSemaphores();
+	void CreateDescriptorPool();
+	void CreateDescriptorSetLayout();
+	void CreateDescriptorSet();
 
 public:
 	void Init(GLFWwindow* window);
 	void RenderFrame();
 	void Cleanup();
 
-	VulkanTools::ImagePair CreateImage(vk::ImageType imageType, vk::Format format, vk::Extent3D extent, vk::ImageUsageFlagBits usage, vk::ImageAspectFlagBits aspectFlags, vk::DeviceMemory& memoryOut,
+	vk::DeviceMemory AllocateAndBindMemory(vk::Image image, vk::MemoryPropertyFlags memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal);
+	vk::DeviceMemory AllocateAndBindMemory(vk::Buffer buffer, vk::MemoryPropertyFlags memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal);
+
+	VulkanTools::ImagePair CreateImage(vk::ImageType imageType, vk::Format format, vk::Extent3D extent, vk::ImageUsageFlagBits usage, vk::ImageAspectFlagBits aspectFlags, vk::DeviceMemory* memoryOut = nullptr,
 		vk::ImageCreateFlagBits flags = {}, vk::SampleCountFlagBits samples = vk::SampleCountFlagBits::e1,
-		vk::MemoryPropertyFlagBits memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal, vk::SharingMode sharingMode = vk::SharingMode::eExclusive,
-		vk::ImageTiling tiling = vk::ImageTiling::eOptimal);
+		vk::MemoryPropertyFlags memoryFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, 
+		vk::SharingMode sharingMode = vk::SharingMode::eExclusive, vk::ImageTiling tiling = vk::ImageTiling::eOptimal);
+
+	vk::Buffer CreateBuffer(uint32_t size, vk::BufferUsageFlags usage, vk::DeviceMemory* memoryOut = nullptr, const void* data = nullptr, vk::MemoryPropertyFlags memoryFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+							vk::SharingMode sharingMode = vk::SharingMode::eExclusive);
+
+	void CopyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size);
 
 	vk::ShaderModule CompileShader(const std::string& fileName, shaderc_shader_kind type);
 };

@@ -5,41 +5,67 @@ SolidSphere::SolidSphere()
 
 }
 
-SolidSphere::SolidSphere(float radius, size_t rings, size_t sectors)		//Create the planet spheare with normals.
+SolidSphere::SolidSphere(float radius, size_t stacks, size_t slices)		//Create the planet spheare with normals.
 {
-	float const R = 1. / (float)(rings - 1.0);
-	float const S = 1. / (float)(sectors - 1.0);
-	int r, s;
+	// Adapated from: https://github.com/Erkaman/cute-deferred-shading/blob/master/src/main.cpp#L573
 
-	vertices.resize(rings * sectors * 3.0);
-	normals.resize(rings * sectors * 3.0);
-	std::vector<float>::iterator v = vertices.begin();
-	std::vector<float>::iterator n = normals.begin();
-	for (r = 0; r < rings; r++) for (s = 0; s < sectors; s++) {
-		float const y = sin(-M_PI_2 + M_PI * r * R);
-		float const x = cos(2 * M_PI * s * S) * sin(M_PI * r * R);
-		float const z = sin(2 * M_PI * s * S) * sin(M_PI * r * R);
+	// loop through stacks.
+	for (int i = 0; i <= stacks; ++i) {
 
-		*v++ = x * radius;
-		*v++ = y * radius;
-		*v++ = z * radius;
+		float V = (float)i / (float)stacks;
+		float phi = V * M_PI;
 
-		*n++ = x;
-		*n++ = y;
-		*n++ = z;
+		// loop through the slices.
+		for (int j = 0; j <= slices; ++j) {
+
+			float U = (float)j / (float)slices;
+			float theta = U * (M_PI * 2);
+
+			// use spherical coordinates to calculate the positions.
+			float x = cos(theta) * sin(phi) * radius;
+			float y = cos(phi) * radius;
+			float z = sin(theta) * sin(phi) * radius;
+
+			vertices.push_back({ { x, y, z }, { x, y, z, 1.0 } });
+		}
 	}
 
-	indices.resize(rings * sectors * 4);
-	std::vector<float>::iterator i = indices.begin();
-	for (r = 0; r < rings - 1; r++) for (s = 0; s < sectors - 1; s++) {
-		*i++ = r * sectors + s;
-		*i++ = r * sectors + (s + 1.0);
-		*i++ = (r + 1) * sectors + (s + 1.0);
-		*i++ = (r + 1) * sectors + s;
+	// Calc The Index Positions
+	for (int i = 0; i < slices * stacks + slices; ++i) {
+		indices.push_back(uint16_t(i));
+		indices.push_back(uint16_t(i + slices + 1));
+		indices.push_back(uint16_t(i + slices));
+
+		indices.push_back(uint16_t(i + slices + 1));
+		indices.push_back(uint16_t(i));
+		indices.push_back(uint16_t(i + 1));
 	}
+
+	//vertices = std::vector<VulkanTools::VertexInput> {
+	//{{0.0f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+	//{{0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
+	//{{-0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}}
+	//};
+	//
+	//indices = std::vector<uint16_t>{
+	//0, 1, 2, 2, 3, 0
+	//};
 }
 
 SolidSphere::~SolidSphere()
 {
 
+}
+
+vk::VertexInputBindingDescription SolidSphere::GetVertexBindingDescription()
+{
+	return vk::VertexInputBindingDescription(0, sizeof(VulkanTools::VertexInput));
+}
+
+std::vector<vk::VertexInputAttributeDescription> SolidSphere::GetVertexAttributeDescription()
+{
+	return std::vector<vk::VertexInputAttributeDescription>{
+						vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32B32Sfloat, offsetof(VulkanTools::VertexInput, pos)),
+						vk::VertexInputAttributeDescription(1, 0, vk::Format::eR32G32B32Sfloat, offsetof(VulkanTools::VertexInput, colour))
+	};
 }

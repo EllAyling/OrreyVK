@@ -2,6 +2,10 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include <glm/glm.hpp>
+
 namespace VulkanTools {
 
 	struct VulkanExtensions
@@ -97,6 +101,12 @@ namespace VulkanTools {
 			this->image = image;
 			this->imageView = imageView;
 		}
+	};
+
+	struct VertexInput
+	{
+		glm::vec3 pos;
+		glm::vec4 colour;
 	};
 
 }
