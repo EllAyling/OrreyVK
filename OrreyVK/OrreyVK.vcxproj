@@ -22,6 +22,7 @@
     <ClInclude Include="src\OrreyVk.h" />
     <ClInclude Include="src\SolidSphere.h" />
     <ClInclude Include="src\Types.h" />
+    <ClInclude Include="src\VulkanBuffer.h" />
     <ClInclude Include="src\VulkanCommandPool.h" />
     <ClInclude Include="src\VulkanSwapchain.h" />
     <ClInclude Include="src\Vulkan.h" />
@@ -39,7 +40,7 @@
     <ProjectGuid>{8DE79B7B-DDDC-4D97-95B1-BC846F0650EE}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>OrreyVK</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -58,7 +59,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+    <PlatformToolset>v141</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">

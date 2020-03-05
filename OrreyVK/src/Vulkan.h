@@ -14,6 +14,7 @@
 
 #include "VulkanSwapchain.h"
 #include "VulkanCommandPool.h"
+#include "VulkanBuffer.h"
 #include "Types.h"
 #include "SolidSphere.h"
 
@@ -26,13 +27,18 @@ protected:
 		vk::Instance instance;
 		vk::PhysicalDevice physicalDevice;
 		vk::SurfaceKHR surface;
-		VulkanSwapchain swapchain;
+		vko::VulkanSwapchain swapchain;
 		GLFWwindow* window;
 		vk::Queue queueGraphics;
 		vk::Queue queueCompute;
 		vk::Queue queueTransfer;
+
+		vk::RenderPass renderpass;
+		std::vector<vk::Framebuffer> frameBuffers;
+		vko::VulkanCommandPool commandPool;
+		std::vector<vk::CommandBuffer> commandBuffers;
 		
-		VulkanCommandPool commandPoolTransfer;
+		vko::VulkanCommandPool commandPoolTransfer;
 
 		vk::DescriptorPool descriptorPool;
 
@@ -46,64 +52,6 @@ protected:
 	std::unique_ptr<VulkanResources> m_vulkanResources;
 	VulkanTools::QueueFamilies m_queueIDs;
 	uint32_t m_frameID = 0;
-	SolidSphere m_sphere;
-
-	struct {
-		struct {
-			glm::mat4 projection;
-			glm::mat4 model;
-			glm::mat4 view;
-		} ubo;
-
-		vk::Buffer uniformBuffer;
-		vk::DeviceMemory uniformBufferMemory;
-		vk::DescriptorSetLayout descriptorSetLayout;
-		vk::DescriptorSet descriptorSet;
-		vk::PipelineLayout pipelineLayout;
-		vk::Pipeline pipeline;
-
-		VulkanCommandPool commandPool;
-		std::vector<vk::CommandBuffer> commandBuffers;
-		vk::RenderPass renderpass;
-		std::vector<vk::Framebuffer> frameBuffers;
-
-	} m_graphics;
-
-	struct {
-		vk::Buffer storageBuffer;
-		vk::Buffer uniformBuffer;
-		VulkanCommandPool commandPool;
-		vk::CommandBuffer cmdBuffer;
-		vk::DescriptorSetLayout descriptorSetLayout;
-		vk::DescriptorSet descriptorSet;
-		vk::PipelineLayout pipelineLayout;
-		vk::Pipeline pipeline;
-		struct computeUbo {
-			float deltaT;
-			int32_t planetCount;
-		} ubo;
-	} m_compute;
-
-	//Vertex buffer
-	struct {
-		vk::DeviceMemory memory;
-		vk::Buffer buffer;
-	} m_bufferVertex;
-
-	// Index buffer
-	struct
-	{
-		vk::DeviceMemory memory;
-		vk::Buffer buffer;
-		uint32_t count;
-	} m_bufferIndex;
-
-	// Uniform buffer block object
-	struct {
-		vk::DeviceMemory memory;
-		vk::Buffer buffer;
-		vk::DescriptorBufferInfo descriptor;
-	}  m_uniformBufferVS;
 
 	uint32_t GetMemoryTypeIndex(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
 
@@ -113,18 +61,11 @@ protected:
 	void CreateSwapchain();
 	void CreateRenderpass();
 	void CreateFramebuffers();
-	void CreateGraphicsPipelineLayout();
-	void CreateGraphicsPipeline();
-	void CreateCommandPool();
-	void CreateCommandBuffers();
-	void CreateFencesAndSemaphores();
-	void CreateDescriptorPool();
-	void CreateDescriptorSetLayout();
-	void CreateDescriptorSet();
 
+	void CreateCommandPool();
+	void CreateFencesAndSemaphores();
 public:
-	void Init(GLFWwindow* window);
-	void RenderFrame();
+	void InitVulkan(GLFWwindow* window);
 	void Cleanup();
 
 	vk::DeviceMemory AllocateAndBindMemory(vk::Image image, vk::MemoryPropertyFlags memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal);
@@ -135,10 +76,10 @@ public:
 		vk::MemoryPropertyFlags memoryFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, 
 		vk::SharingMode sharingMode = vk::SharingMode::eExclusive, vk::ImageTiling tiling = vk::ImageTiling::eOptimal);
 
-	vk::Buffer CreateBuffer(uint32_t size, vk::BufferUsageFlags usage, vk::DeviceMemory* memoryOut = nullptr, const void* data = nullptr, vk::MemoryPropertyFlags memoryFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+	vko::Buffer CreateBuffer(uint32_t size, vk::BufferUsageFlags usage, const void* data = nullptr, vk::MemoryPropertyFlags memoryFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
 							vk::SharingMode sharingMode = vk::SharingMode::eExclusive);
 
-	void CopyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size);
+	void CopyBuffer(vko::Buffer srcBuffer, vko::Buffer dstBuffer, vk::DeviceSize size);
 
 	vk::ShaderModule CompileShader(const std::string& fileName, shaderc_shader_kind type);
 };

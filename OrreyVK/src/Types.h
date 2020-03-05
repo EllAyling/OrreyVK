@@ -108,6 +108,5 @@ namespace VulkanTools {
 		glm::vec3 pos;
 		glm::vec4 colour;
 	};
-
 }
 #endif

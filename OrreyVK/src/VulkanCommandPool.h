@@ -4,26 +4,27 @@
 
 #include <vulkan/vulkan.hpp>
 
-class VulkanCommandPool
-{
-private:
-	vk::CommandPool commandPool;
-	vk::Device device;
-
-public:
-	VulkanCommandPool() {};
-	VulkanCommandPool(vk::Device device, uint32_t queueFamily, vk::CommandPoolCreateFlagBits flags)
+namespace vko {
+	class VulkanCommandPool
 	{
-		this->device = device;
-		vk::CommandPoolCreateInfo commandPoolInfo = vk::CommandPoolCreateInfo(flags, queueFamily);
-		commandPool = device.createCommandPool(commandPoolInfo);
-	}
+	private:
+		vk::CommandPool commandPool;
+		vk::Device device;
 
-	vk::CommandBuffer AllocateCommandBuffer();
-	std::vector<vk::CommandBuffer> AllocateCommandBuffers(uint32_t count);
-	void FreeCommandBuffers(vk::ArrayProxy<const vk::CommandBuffer> commandBuffers);
-	void Destroy();
-};
+	public:
+		VulkanCommandPool() {};
+		VulkanCommandPool(vk::Device device, uint32_t queueFamily, vk::CommandPoolCreateFlagBits flags)
+		{
+			this->device = device;
+			vk::CommandPoolCreateInfo commandPoolInfo = vk::CommandPoolCreateInfo(flags, queueFamily);
+			commandPool = device.createCommandPool(commandPoolInfo);
+		}
 
+		vk::CommandBuffer AllocateCommandBuffer();
+		std::vector<vk::CommandBuffer> AllocateCommandBuffers(uint32_t count);
+		void FreeCommandBuffers(vk::ArrayProxy<const vk::CommandBuffer> commandBuffers);
+		void Destroy();
+	};
+}
 #endif
 

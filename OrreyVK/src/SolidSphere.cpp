@@ -39,17 +39,7 @@ SolidSphere::SolidSphere(float radius, size_t stacks, size_t slices)		//Create t
 		indices.push_back(uint16_t(i + slices + 1));
 		indices.push_back(uint16_t(i));
 		indices.push_back(uint16_t(i + 1));
-	}
-
-	//vertices = std::vector<VulkanTools::VertexInput> {
-	//{{0.0f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-	//{{0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
-	//{{-0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}}
-	//};
-	//
-	//indices = std::vector<uint16_t>{
-	//0, 1, 2, 2, 3, 0
-	//};
+	}	
 }
 
 SolidSphere::~SolidSphere()
