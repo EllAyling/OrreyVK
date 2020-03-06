@@ -3,6 +3,8 @@
 layout(location = 0) in vec3 vtxPosIn;
 layout(location = 1) in vec3 vtxColourIn;
 
+layout(location = 2) in vec3 instancePosIn;
+
 layout(location = 1) out vec3 fragColourIn;
 
 layout (binding = 2) uniform UBO 
@@ -13,6 +15,9 @@ layout (binding = 2) uniform UBO
 } ubo;
 
 void main() {
-    gl_Position = ubo.projection * ubo.view * ubo.model * vec4(vtxPosIn, 1.0f);
+
+	vec4 pos = vec4(vtxPosIn + instancePosIn, 1.0);
+
+    gl_Position = ubo.projection * ubo.view * ubo.model * pos;
     fragColourIn = vtxColourIn;
 }
