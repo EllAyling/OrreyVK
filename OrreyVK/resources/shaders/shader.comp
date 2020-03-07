@@ -1,0 +1,39 @@
+#version 450
+
+struct CelestialObj
+{
+	vec2 pos;
+	vec2 vel;
+};
+
+// Binding 0 : Position storage buffer
+layout(std140, binding = 0) buffer Pos 
+{
+   CelestialObj celestialObj[ ];
+};
+
+layout (local_size_x = 256) in;
+
+layout (binding = 1) uniform UBO 
+{
+	float deltaT;
+	int objectCount;
+} ubo;
+
+void main() 
+{
+    // Current SSBO index
+    uint index = gl_GlobalInvocationID.x;
+	// Don't try to write beyond particle count
+    if (index >= ubo.objectCount) 
+		return;	
+
+    // Read position and velocity
+    vec2 vVel = celestialObj[index].vel.xy;
+    vec2 vPos = celestialObj[index].pos.xy;
+
+    // Write back
+    celestialObj[index].pos.xy = vPos;
+    celestialObj[index].vel.xy = vVel;
+}
+

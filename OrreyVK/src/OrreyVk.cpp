@@ -24,6 +24,8 @@ void OrreyVk::Init() {
 	InitVulkan(m_window);
 
 	m_sphere = SolidSphere(0.5, 20, 20);
+
+	//Setup vertex and ubo buffer for graphics
 	vko::Buffer vertexStagingBuffer = CreateBuffer(m_sphere.GetVerticesSize(), vk::BufferUsageFlagBits::eTransferSrc, m_sphere.GetVertices().data());
 	vko::Buffer indexStagingBuffer = CreateBuffer(m_sphere.GetIndiciesSize(), vk::BufferUsageFlagBits::eTransferSrc, m_sphere.GetIndicies().data());
 	m_bufferVertex = CreateBuffer(m_sphere.GetVerticesSize(), vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, nullptr, vk::MemoryPropertyFlagBits::eDeviceLocal);
@@ -42,6 +44,8 @@ void OrreyVk::Init() {
 	vertexStagingBuffer.Destroy();
 	indexStagingBuffer.Destroy();
 
+	m_graphics.semaphore = m_vulkanResources->device.createSemaphore(vk::SemaphoreCreateInfo());
+
 	PrepareInstance();
 
 	CreateDescriptorPool();
@@ -50,21 +54,50 @@ void OrreyVk::Init() {
 
 	CreateGraphicsPipelineLayout();
 	CreateGraphicsPipeline();
+	PrepareCompute();
 
 	CreateCommandBuffers();
 }
 
 void OrreyVk::PrepareInstance()
 {
-	std::vector<glm::vec3> instancePos;
+	std::vector<CelestialObj> objects;
 	for (int i = -5; i < 5; i++)
-		instancePos.push_back(glm::vec3((float)i, 0.0f, 0.0f));
+		objects.push_back({ glm::vec3((float)i, 0.0f, 0.0f), glm::vec3(0.0, 0.0, 0.0) });
 
-	vko::Buffer instanceStagingBuffer = CreateBuffer(instancePos.size() * sizeof(glm::vec3), vk::BufferUsageFlagBits::eTransferSrc, instancePos.data());
-	m_bufferInstance = CreateBuffer(instancePos.size() * sizeof(glm::vec3), vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, nullptr, vk::MemoryPropertyFlagBits::eDeviceLocal);
+	uint32_t size = objects.size() * sizeof(CelestialObj);
+	vko::Buffer instanceStagingBuffer = CreateBuffer(size, vk::BufferUsageFlagBits::eTransferSrc, objects.data());
+	m_bufferInstance = CreateBuffer(size, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, nullptr, vk::MemoryPropertyFlagBits::eDeviceLocal);
 
-	CopyBuffer(instanceStagingBuffer, m_bufferInstance, instancePos.size() * sizeof(glm::vec3));
+	CopyBuffer(instanceStagingBuffer, m_bufferInstance, size);
 	instanceStagingBuffer.Destroy();
+
+	if (m_queueIDs.graphics.familyID != m_queueIDs.compute.familyID)
+	{
+		vk::CommandBuffer cmdBuffer = m_vulkanResources->commandPool.AllocateCommandBuffer();
+		cmdBuffer.begin(vk::CommandBufferBeginInfo());
+
+		vk::BufferMemoryBarrier barrier = vk::BufferMemoryBarrier(
+			vk::AccessFlagBits::eVertexAttributeRead, {},
+			m_queueIDs.graphics.familyID, m_queueIDs.compute.familyID,
+			m_bufferInstance.buffer, 0, m_bufferInstance.size
+		);
+
+		cmdBuffer.pipelineBarrier(
+			vk::PipelineStageFlagBits::eVertexInput, vk::PipelineStageFlagBits::eComputeShader,
+			{}, {}, barrier, {});
+
+		cmdBuffer.end();
+
+		vk::SubmitInfo submitInfo = vk::SubmitInfo();
+		vk::Fence fence = m_vulkanResources->device.createFence(vk::FenceCreateInfo());
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &cmdBuffer;
+		m_vulkanResources->queueGraphics.submit(submitInfo, fence);
+		m_vulkanResources->device.waitForFences(fence, true, INT_MAX);
+		m_vulkanResources->device.destroyFence(fence);
+		m_vulkanResources->commandPool.FreeCommandBuffers(cmdBuffer);
+	}
 }
 
 void OrreyVk::CreateCommandBuffers()
@@ -83,6 +116,20 @@ void OrreyVk::CreateCommandBuffers()
 		renderPassInfo.renderArea = vk::Rect2D({ 0, 0 }, m_vulkanResources->swapchain.GetDimensions());
 
 		m_vulkanResources->commandBuffers[i].begin(vk::CommandBufferBeginInfo());
+
+		if (m_queueIDs.graphics.familyID != m_queueIDs.compute.familyID)
+		{
+			vk::BufferMemoryBarrier barrier = vk::BufferMemoryBarrier(
+				{}, vk::AccessFlagBits::eVertexAttributeRead,
+				m_queueIDs.compute.familyID, m_queueIDs.graphics.familyID,
+				m_bufferInstance.buffer, 0, m_bufferInstance.size
+			);
+
+			m_vulkanResources->commandBuffers[i].pipelineBarrier(
+				vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eVertexInput,
+				{}, {}, barrier, {});
+		}
+			   		 	  
 		m_vulkanResources->commandBuffers[i].beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 		m_vulkanResources->commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphics.pipeline);
 		m_vulkanResources->commandBuffers[i].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_graphics.pipelineLayout, 0, 1, &m_graphics.descriptorSet, 0, nullptr);
@@ -91,6 +138,20 @@ void OrreyVk::CreateCommandBuffers()
 		m_vulkanResources->commandBuffers[i].bindIndexBuffer(m_bufferIndex.buffer, { 0 }, vk::IndexType::eUint16);
 		m_vulkanResources->commandBuffers[i].drawIndexed(m_sphere.GetIndicies().size(), 10, 0, 0, 0);
 		m_vulkanResources->commandBuffers[i].endRenderPass();
+
+		if (m_queueIDs.graphics.familyID != m_queueIDs.compute.familyID)
+		{
+			vk::BufferMemoryBarrier barrier = vk::BufferMemoryBarrier(
+				vk::AccessFlagBits::eVertexAttributeRead, {},
+				m_queueIDs.graphics.familyID, m_queueIDs.compute.familyID,
+				m_bufferInstance.buffer, 0, m_bufferInstance.size
+			);
+
+			m_vulkanResources->commandBuffers[i].pipelineBarrier(
+				vk::PipelineStageFlagBits::eVertexInput, vk::PipelineStageFlagBits::eComputeShader,
+				{}, {}, barrier, {});
+		}
+
 		m_vulkanResources->commandBuffers[i].end();
 	}
 }
@@ -99,10 +160,11 @@ void OrreyVk::CreateDescriptorPool()
 {
 	std::vector<vk::DescriptorPoolSize> poolSizes =
 	{
-		vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 1)
+		vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 2),
+		vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, 1)
 	};
 
-	vk::DescriptorPoolCreateInfo poolInfo = vk::DescriptorPoolCreateInfo({}, 1, poolSizes.size(), poolSizes.data());
+	vk::DescriptorPoolCreateInfo poolInfo = vk::DescriptorPoolCreateInfo({}, 3, poolSizes.size(), poolSizes.data());
 	m_vulkanResources->descriptorPool = m_vulkanResources->device.createDescriptorPool(poolInfo);
 }
 
@@ -145,10 +207,10 @@ void OrreyVk::CreateGraphicsPipeline()
 	vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStage, fragShaderStage };
 
 	std::vector<vk::VertexInputAttributeDescription> vertexAttributeDescriptions = m_sphere.GetVertexAttributeDescription();
-	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(2, 1, vk::Format::eR32G32B32Sfloat, 0));
+	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(2, 1, vk::Format::eR32G32B32Sfloat, offsetof(CelestialObj, position)));
 
 	std::vector<vk::VertexInputBindingDescription> bindingDesc = { m_sphere.GetVertexBindingDescription() };
-	bindingDesc.push_back(vk::VertexInputBindingDescription(1, sizeof(glm::vec3), vk::VertexInputRate::eInstance));
+	bindingDesc.push_back(vk::VertexInputBindingDescription(1, sizeof(CelestialObj), vk::VertexInputRate::eInstance));
 
 	vk::PipelineVertexInputStateCreateInfo vertexInputInfo = vk::PipelineVertexInputStateCreateInfo({}, 2, bindingDesc.data(), vertexAttributeDescriptions.size(), vertexAttributeDescriptions.data());
 
@@ -199,24 +261,39 @@ void OrreyVk::CreateGraphicsPipeline()
 
 void OrreyVk::RenderFrame()
 {
+	m_vulkanResources->device.waitForFences(m_compute.fence, true, UINT64_MAX);
+	m_vulkanResources->device.resetFences(m_compute.fence);
 	m_vulkanResources->device.waitForFences(m_vulkanResources->fences[m_frameID], true, UINT64_MAX);
 	m_vulkanResources->device.resetFences(m_vulkanResources->fences[m_frameID]);
 
 	vk::ResultValue<uint32_t> imageIndex = m_vulkanResources->device.acquireNextImageKHR(m_vulkanResources->swapchain.GetVkObject(), UINT64_MAX, m_vulkanResources->semaphoreImageAquired[m_frameID], {});
 
-	vk::SubmitInfo submitInfo = vk::SubmitInfo();
-	submitInfo.waitSemaphoreCount = 1;
-	submitInfo.pWaitSemaphores = &m_vulkanResources->semaphoreImageAquired[m_frameID];
-	vk::PipelineStageFlags waitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
-	submitInfo.pWaitDstStageMask = waitStages;
+	vk::Semaphore waitSemaphores[] = { m_compute.semaphore, m_vulkanResources->semaphoreImageAquired[m_frameID]  };
+	vk::Semaphore signalSemaphores[] = { m_graphics.semaphore, m_vulkanResources->semaphoreRender[m_frameID] };
+	vk::PipelineStageFlags waitStages[] = { vk::PipelineStageFlagBits::eVertexInput, vk::PipelineStageFlagBits::eColorAttachmentOutput };
 
+	vk::SubmitInfo submitInfo = vk::SubmitInfo();
+	submitInfo.waitSemaphoreCount = 2;
+	submitInfo.pWaitSemaphores = waitSemaphores;
+	submitInfo.pWaitDstStageMask = waitStages;
+	submitInfo.signalSemaphoreCount = 2;
+	submitInfo.pSignalSemaphores = signalSemaphores;
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &m_vulkanResources->commandBuffers[imageIndex.value];
 
-	submitInfo.signalSemaphoreCount = 1;
-	submitInfo.pSignalSemaphores = &m_vulkanResources->semaphoreRender[m_frameID];
-
 	m_vulkanResources->queueGraphics.submit(submitInfo, m_vulkanResources->fences[imageIndex.value]);
+
+	vk::SubmitInfo computeSubmitInfo = vk::SubmitInfo();
+	computeSubmitInfo.waitSemaphoreCount = 1;
+	computeSubmitInfo.pWaitSemaphores = &m_graphics.semaphore;
+	vk::PipelineStageFlags computeWaitStages[] = { vk::PipelineStageFlagBits::eComputeShader };
+	computeSubmitInfo.pWaitDstStageMask = computeWaitStages;
+	computeSubmitInfo.signalSemaphoreCount = 1;
+	computeSubmitInfo.pSignalSemaphores = &m_compute.semaphore;
+	computeSubmitInfo.commandBufferCount = 1;
+	computeSubmitInfo.pCommandBuffers = &m_compute.cmdBuffer;
+
+	m_vulkanResources->queueCompute.submit(computeSubmitInfo, m_compute.fence);
 
 	vk::SwapchainKHR swapchains[] = { m_vulkanResources->swapchain.GetVkObject() };
 	vk::PresentInfoKHR presentInfo = vk::PresentInfoKHR(1, &m_vulkanResources->semaphoreRender[m_frameID], 1, swapchains, &imageIndex.value);
@@ -237,7 +314,7 @@ void OrreyVk::UpdateCamera(float xPos, float yPos, float deltaTime)
 	m_camera.mousePos = glm::vec2(xPos, yPos);
 }
 
-void OrreyVk::UpdateUniformBuffer()
+void OrreyVk::UpdateCameraUniformBuffer()
 {
 	m_graphics.ubo.view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0, 0.0, m_camera.zoom));
 	m_graphics.ubo.view = glm::rotate(m_graphics.ubo.view, glm::radians(m_camera.rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
@@ -247,6 +324,131 @@ void OrreyVk::UpdateUniformBuffer()
 	memcpy(m_graphics.uniformBuffer.mapped, &m_graphics.ubo, sizeof(m_graphics.ubo));
 
 	m_camera.viewUpdated = false;
+}
+
+void OrreyVk::UpdateComputeUniformBuffer()
+{
+	m_compute.ubo.deltaT = m_frameTime;
+	memcpy(m_compute.uniformBuffer.mapped, &m_compute.ubo, sizeof(m_compute.ubo));
+}
+
+void OrreyVk::PrepareCompute()
+{
+	//Compute Uniform buffer
+	m_compute.uniformBuffer = CreateBuffer(sizeof(m_compute.ubo), vk::BufferUsageFlagBits::eUniformBuffer);
+	m_compute.ubo.objectCount = 10;
+	m_compute.uniformBuffer.Map();
+	UpdateComputeUniformBuffer();
+
+	std::vector<vk::DescriptorSetLayoutBinding> descSetLayoutBindings =
+	{
+		vk::DescriptorSetLayoutBinding(0, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute),
+		vk::DescriptorSetLayoutBinding(1, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eCompute)
+	};
+
+	m_compute.descriptorSetLayout = m_vulkanResources->device.createDescriptorSetLayout(vk::DescriptorSetLayoutCreateInfo({}, descSetLayoutBindings.size(), descSetLayoutBindings.data()));
+
+	m_compute.pipelineLayout = m_vulkanResources->device.createPipelineLayout(vk::PipelineLayoutCreateInfo({}, 1, &m_compute.descriptorSetLayout));
+
+	vk::DescriptorSetAllocateInfo allocInfo = vk::DescriptorSetAllocateInfo(m_vulkanResources->descriptorPool, 1, &m_compute.descriptorSetLayout);
+	m_compute.descriptorSet = m_vulkanResources->device.allocateDescriptorSets(allocInfo)[0];
+
+	std::vector<vk::WriteDescriptorSet> writeSets =
+	{
+		vk::WriteDescriptorSet(m_compute.descriptorSet, 0, 0, 1, vk::DescriptorType::eStorageBuffer, {}, &(m_bufferInstance.descriptor)),
+		vk::WriteDescriptorSet(m_compute.descriptorSet, 1, 0, 1, vk::DescriptorType::eUniformBuffer, {}, &(m_compute.uniformBuffer.descriptor))
+	};
+
+	m_vulkanResources->device.updateDescriptorSets(writeSets.size(), writeSets.data(), 0, nullptr);
+
+	vk::ComputePipelineCreateInfo pipelineCreateInfo = vk::ComputePipelineCreateInfo();
+	pipelineCreateInfo.layout = m_compute.pipelineLayout;
+	vk::ShaderModule computeShader = CompileShader("resources/shaders/shader.comp", shaderc_shader_kind::shaderc_glsl_compute_shader);
+	vk::PipelineShaderStageCreateInfo computeShaderStage = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eCompute, computeShader, "main");
+	pipelineCreateInfo.stage = computeShaderStage;
+	m_compute.pipeline = m_vulkanResources->device.createComputePipeline(nullptr, pipelineCreateInfo);
+
+	m_compute.commandPool = vko::VulkanCommandPool(m_vulkanResources->device, m_queueIDs.compute.familyID, vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
+	m_compute.cmdBuffer = m_compute.commandPool.AllocateCommandBuffer();
+
+	m_compute.fence = m_vulkanResources->device.createFence(vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled));
+	m_compute.semaphore = m_vulkanResources->device.createSemaphore(vk::SemaphoreCreateInfo());
+	vk::SubmitInfo submitInfo = vk::SubmitInfo();
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = &m_compute.semaphore;
+	m_vulkanResources->queueCompute.submit(submitInfo, nullptr);
+	m_vulkanResources->queueCompute.waitIdle();
+
+
+	if (m_queueIDs.graphics.familyID != m_queueIDs.compute.familyID)
+	{
+		vk::CommandBuffer cmdBuffer = m_compute.commandPool.AllocateCommandBuffer();
+		cmdBuffer.begin(vk::CommandBufferBeginInfo());
+
+		vk::BufferMemoryBarrier barrier = vk::BufferMemoryBarrier(
+			{}, vk::AccessFlagBits::eShaderWrite,
+			m_queueIDs.graphics.familyID, m_queueIDs.compute.familyID,
+			m_bufferInstance.buffer, 0, m_bufferInstance.size
+		);
+
+		cmdBuffer.pipelineBarrier(
+			vk::PipelineStageFlagBits::eVertexInput, vk::PipelineStageFlagBits::eComputeShader,
+			{}, {}, barrier, {});
+
+		barrier = vk::BufferMemoryBarrier(
+			vk::AccessFlagBits::eShaderWrite, {},
+			m_queueIDs.compute.familyID, m_queueIDs.graphics.familyID,
+			m_bufferInstance.buffer, 0, m_bufferInstance.size
+		);
+
+		cmdBuffer.pipelineBarrier(
+			vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eVertexInput,
+			{}, {}, barrier, {});
+
+		cmdBuffer.end();
+
+		vk::SubmitInfo submitInfo = vk::SubmitInfo();
+		vk::Fence fence = m_vulkanResources->device.createFence(vk::FenceCreateInfo());
+		submitInfo.commandBufferCount = 1;
+		submitInfo.pCommandBuffers = &cmdBuffer;
+		m_vulkanResources->queueCompute.submit(submitInfo, fence);
+		m_vulkanResources->device.waitForFences(fence, true, INT_MAX);
+		m_vulkanResources->device.destroyFence(fence);
+		m_compute.commandPool.FreeCommandBuffers(cmdBuffer);
+	}
+
+	m_compute.cmdBuffer.begin(vk::CommandBufferBeginInfo());
+	if (m_queueIDs.graphics.familyID != m_queueIDs.compute.familyID)
+	{
+		vk::BufferMemoryBarrier barrier = vk::BufferMemoryBarrier(
+			{}, vk::AccessFlagBits::eShaderWrite,
+			m_queueIDs.graphics.familyID, m_queueIDs.compute.familyID,
+			m_bufferInstance.buffer, 0, m_bufferInstance.size
+		);
+
+		m_compute.cmdBuffer.pipelineBarrier(
+			vk::PipelineStageFlagBits::eVertexInput, vk::PipelineStageFlagBits::eComputeShader,
+			{}, {}, barrier, {});
+	}
+
+	m_compute.cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, m_compute.pipeline);
+	m_compute.cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_compute.pipelineLayout, 0, m_compute.descriptorSet, {});
+	m_compute.cmdBuffer.dispatch(10, 1, 1);
+
+	if (m_queueIDs.graphics.familyID != m_queueIDs.compute.familyID)
+	{
+		vk::BufferMemoryBarrier barrier = vk::BufferMemoryBarrier(
+			vk::AccessFlagBits::eShaderWrite, {},
+			m_queueIDs.compute.familyID, m_queueIDs.graphics.familyID,
+			m_bufferInstance.buffer, 0, m_bufferInstance.size
+		);
+
+		m_compute.cmdBuffer.pipelineBarrier(
+			vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eVertexInput,
+			{}, {}, barrier, {});
+	}
+
+	m_compute.cmdBuffer.end();
 }
 
 void OrreyVk::MainLoop() {
@@ -269,7 +471,9 @@ void OrreyVk::MainLoop() {
 		}
 
 		if (m_camera.viewUpdated)
-			UpdateUniformBuffer();
+			UpdateCameraUniformBuffer();
+
+		UpdateComputeUniformBuffer();
 
 		auto tEnd = std::chrono::high_resolution_clock::now();
 		auto tDiff = std::chrono::duration<double, std::milli>(tEnd - tStart).count();

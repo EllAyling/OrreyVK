@@ -49,15 +49,14 @@ private:
 		} ubo;
 
 		vko::Buffer uniformBuffer;
-		vk::DeviceMemory uniformBufferMemory;
 		vk::DescriptorSetLayout descriptorSetLayout;
 		vk::DescriptorSet descriptorSet;
 		vk::PipelineLayout pipelineLayout;
 		vk::Pipeline pipeline;
+		vk::Semaphore semaphore;
 	} m_graphics;
 
 	struct {
-		vko::Buffer storageBuffer;
 		vko::Buffer uniformBuffer;
 		vko::VulkanCommandPool commandPool;
 		vk::CommandBuffer cmdBuffer;
@@ -65,11 +64,18 @@ private:
 		vk::DescriptorSet descriptorSet;
 		vk::PipelineLayout pipelineLayout;
 		vk::Pipeline pipeline;
-		struct computeUbo {
+		vk::Semaphore semaphore;
+		vk::Fence fence;
+		struct {
 			float deltaT;
-			int32_t planetCount;
+			int32_t objectCount;
 		} ubo;
 	} m_compute;
+
+	struct CelestialObj {
+		glm::vec3 position;
+		glm::vec3 velocity;
+	};
 
 	vko::Buffer m_bufferVertex;
 	vko::Buffer m_bufferIndex;
@@ -85,7 +91,9 @@ private:
 	void RenderFrame();
 
 	void PrepareInstance();
-	void UpdateUniformBuffer();
+	void UpdateCameraUniformBuffer();
+	void UpdateComputeUniformBuffer();
+	void PrepareCompute();
 
 };
 	void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
