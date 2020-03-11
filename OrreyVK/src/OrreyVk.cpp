@@ -1,5 +1,7 @@
 #include "OrreyVk.h"
 
+#define OBJECTS_PER_GROUP 256
+
 void OrreyVk::Run() {
 	InitWindow();
 	Init();
@@ -62,8 +64,8 @@ void OrreyVk::Init() {
 void OrreyVk::PrepareInstance()
 {
 	std::vector<CelestialObj> objects;
-	for (int i = -5; i < 5; i++)
-		objects.push_back({ glm::vec3((float)i, 0.0f, 0.0f), glm::vec3(0.0, 0.0, 0.0) });
+	for (int i = -256; i < 256; i++)
+		objects.push_back({ glm::vec4(0.0f, 0.0f, 1.0f, 0.0f), glm::vec4(0.07, 0.0, 0.0, 0.0) });
 
 	uint32_t size = objects.size() * sizeof(CelestialObj);
 	vko::Buffer instanceStagingBuffer = CreateBuffer(size, vk::BufferUsageFlagBits::eTransferSrc, objects.data());
@@ -136,7 +138,7 @@ void OrreyVk::CreateCommandBuffers()
 		m_vulkanResources->commandBuffers[i].bindVertexBuffers(0, m_bufferVertex.buffer, { 0 });
 		m_vulkanResources->commandBuffers[i].bindVertexBuffers(1, m_bufferInstance.buffer, { 0 });
 		m_vulkanResources->commandBuffers[i].bindIndexBuffer(m_bufferIndex.buffer, { 0 }, vk::IndexType::eUint16);
-		m_vulkanResources->commandBuffers[i].drawIndexed(m_sphere.GetIndicies().size(), 10, 0, 0, 0);
+		m_vulkanResources->commandBuffers[i].drawIndexed(m_sphere.GetIndicies().size(), m_bufferInstance.size / sizeof(CelestialObj), 0, 0, 0);
 		m_vulkanResources->commandBuffers[i].endRenderPass();
 
 		if (m_queueIDs.graphics.familyID != m_queueIDs.compute.familyID)
@@ -207,7 +209,7 @@ void OrreyVk::CreateGraphicsPipeline()
 	vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStage, fragShaderStage };
 
 	std::vector<vk::VertexInputAttributeDescription> vertexAttributeDescriptions = m_sphere.GetVertexAttributeDescription();
-	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(2, 1, vk::Format::eR32G32B32Sfloat, offsetof(CelestialObj, position)));
+	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(2, 1, vk::Format::eR32G32B32A32Sfloat, offsetof(CelestialObj, position)));
 
 	std::vector<vk::VertexInputBindingDescription> bindingDesc = { m_sphere.GetVertexBindingDescription() };
 	bindingDesc.push_back(vk::VertexInputBindingDescription(1, sizeof(CelestialObj), vk::VertexInputRate::eInstance));
@@ -336,7 +338,7 @@ void OrreyVk::PrepareCompute()
 {
 	//Compute Uniform buffer
 	m_compute.uniformBuffer = CreateBuffer(sizeof(m_compute.ubo), vk::BufferUsageFlagBits::eUniformBuffer);
-	m_compute.ubo.objectCount = 10;
+	m_compute.ubo.objectCount = m_bufferInstance.size / sizeof(CelestialObj);
 	m_compute.uniformBuffer.Map();
 	UpdateComputeUniformBuffer();
 
@@ -433,7 +435,7 @@ void OrreyVk::PrepareCompute()
 
 	m_compute.cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, m_compute.pipeline);
 	m_compute.cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_compute.pipelineLayout, 0, m_compute.descriptorSet, {});
-	m_compute.cmdBuffer.dispatch(10, 1, 1);
+	m_compute.cmdBuffer.dispatch(ceil((m_bufferInstance.size / sizeof(CelestialObj)) / OBJECTS_PER_GROUP), 1, 1);
 
 	if (m_queueIDs.graphics.familyID != m_queueIDs.compute.familyID)
 	{

@@ -73,8 +73,8 @@ private:
 	} m_compute;
 
 	struct CelestialObj {
-		glm::vec3 position;
-		glm::vec3 velocity;
+		glm::vec4 position;
+		glm::vec4 velocity;
 	};
 
 	vko::Buffer m_bufferVertex;

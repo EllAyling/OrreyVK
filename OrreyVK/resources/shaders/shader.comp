@@ -2,8 +2,8 @@
 
 struct CelestialObj
 {
-	vec2 pos;
-	vec2 vel;
+	vec4 pos;
+	vec4 vel;
 };
 
 // Binding 0 : Position storage buffer
@@ -22,18 +22,18 @@ layout (binding = 1) uniform UBO
 
 void main() 
 {
-    // Current SSBO index
-    uint index = gl_GlobalInvocationID.x;
+  // Current SSBO index
+  uint index = gl_GlobalInvocationID.x;
 	// Don't try to write beyond particle count
-    if (index >= ubo.objectCount) 
-		return;	
+  if (index >= ubo.objectCount) 
+	return;	
 
-    // Read position and velocity
-    vec2 vVel = celestialObj[index].vel.xy;
-    vec2 vPos = celestialObj[index].pos.xy;
+  // Read position and velocity
+  vec3 vPos = celestialObj[index].pos.xyz;
+  vec3 vVel = celestialObj[index].vel.xyz;
 
-    // Write back
-    celestialObj[index].pos.xy = vPos;
-    celestialObj[index].vel.xy = vVel;
+  // Write back
+  celestialObj[index].pos.xyz = vPos;
+  celestialObj[index].vel.xyz = vVel;
 }
 
