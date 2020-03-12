@@ -31,9 +31,27 @@ void main()
   // Read position and velocity
   vec3 vPos = celestialObj[index].pos.xyz;
   vec3 vVel = celestialObj[index].vel.xyz;
+  float xT = vPos.x;
+  float zT = vPos.z;
+  float xV = vVel.x;
+  float zV = vVel.z;
+  if(xT != 0.0 || zT != 0.0)
+  {
+    float radius = sqrt((xT * xT) + (zT * zT));
+    float gravAcc = 6.6742e-11 * (celestialObj[index].pos.w / (radius * radius));
+    float angle = atan(xT, zT);
+    xV += sin(angle) * gravAcc;
+    zV += cos(angle) * gravAcc;
 
-  // Write back
-  celestialObj[index].pos.xyz = vPos;
-  celestialObj[index].vel.xyz = vVel;
+    xT -= xV;
+    zT -= zV;
+    // Write back
+    celestialObj[index].pos.x = xT;
+    celestialObj[index].pos.z = zT;
+
+    celestialObj[index].vel.x = xV;
+    celestialObj[index].vel.z = zV;
+  }
+  
 }
 

@@ -18,7 +18,7 @@ public:
 	
 	struct {
 		glm::vec2 mousePos = glm::vec2();
-		float zoom = -5.0f;
+		float zoom = -100.0f;
 		float rotationSpeed = 7.5f;
 		float movementSpeed = 1.0f;
 		bool viewUpdated = false;
@@ -94,6 +94,8 @@ private:
 	void UpdateCameraUniformBuffer();
 	void UpdateComputeUniformBuffer();
 	void PrepareCompute();
+
+	float RandomRange(float min, float max) { return min + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (max - min))); }
 
 };
 	void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);

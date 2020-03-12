@@ -1,6 +1,7 @@
 #include "OrreyVk.h"
 
 #define OBJECTS_PER_GROUP 256
+#define OBJECTS_TO_SPAWN 512
 
 void OrreyVk::Run() {
 	InitWindow();
@@ -36,12 +37,21 @@ void OrreyVk::Init() {
 	CopyBuffer(vertexStagingBuffer, m_bufferVertex, m_sphere.GetVerticesSize());
 	CopyBuffer(indexStagingBuffer, m_bufferIndex, m_sphere.GetIndiciesSize());
 
-	m_graphics.ubo.projection = glm::perspective(glm::radians(60.0f), m_vulkanResources->swapchain.GetDimensions().width / (float)m_vulkanResources->swapchain.GetDimensions().height, 0.1f, 100.0f);
-	m_graphics.ubo.view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0, 0.0, -5.0));
+	m_graphics.ubo.projection = glm::perspective(glm::radians(60.0f), m_vulkanResources->swapchain.GetDimensions().width / (float)m_vulkanResources->swapchain.GetDimensions().height, 0.1f, 10000.0f);
+
+	m_graphics.ubo.view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0, 0.0, m_camera.zoom));
+	m_camera.rotation.x = -90.0;
+	m_camera.rotation.y = 0.0;
+	m_camera.rotation.z = 0.0;
+	m_graphics.ubo.view = glm::rotate(m_graphics.ubo.view, glm::radians(m_camera.rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+	m_graphics.ubo.view = glm::rotate(m_graphics.ubo.view, glm::radians(m_camera.rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+	m_graphics.ubo.view = glm::rotate(m_graphics.ubo.view, glm::radians(m_camera.rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+
 	m_graphics.ubo.model = glm::mat4(1.0f);
 
 	m_graphics.uniformBuffer = CreateBuffer(sizeof(m_graphics.ubo), vk::BufferUsageFlagBits::eUniformBuffer, &m_graphics.ubo);
 	m_graphics.uniformBuffer.Map();
+	memcpy(m_graphics.uniformBuffer.mapped, &m_graphics.ubo, sizeof(m_graphics.ubo));
 
 	vertexStagingBuffer.Destroy();
 	indexStagingBuffer.Destroy();
@@ -64,8 +74,15 @@ void OrreyVk::Init() {
 void OrreyVk::PrepareInstance()
 {
 	std::vector<CelestialObj> objects;
-	for (int i = -256; i < 256; i++)
-		objects.push_back({ glm::vec4(0.0f, 0.0f, 1.0f, 0.0f), glm::vec4(0.07, 0.0, 0.0, 0.0) });
+
+	int objectsToSpawn = OBJECTS_TO_SPAWN;
+	while (objectsToSpawn % OBJECTS_PER_GROUP != 0)
+		objectsToSpawn--;
+
+	objects.resize(objectsToSpawn);
+	objects[0] = { glm::vec4(0.0f, 0.0f, 0.0f, 0.0f), glm::vec4(0.0, 0.0, 0.0, 0.0) };
+	for (int i = 1; i < objectsToSpawn; i++)
+		objects[i] = { glm::vec4(RandomRange(-100, 100), 0.0f, RandomRange(-100, 100), RandomRange(6.972e1, 6.972e10)), glm::vec4(RandomRange(0.01, 1.0), 0.0, 0.0, 0.0) };
 
 	uint32_t size = objects.size() * sizeof(CelestialObj);
 	vko::Buffer instanceStagingBuffer = CreateBuffer(size, vk::BufferUsageFlagBits::eTransferSrc, objects.data());
