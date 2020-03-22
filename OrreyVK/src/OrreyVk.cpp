@@ -1,7 +1,8 @@
 #include "OrreyVk.h"
 
 #define OBJECTS_PER_GROUP 256
-#define OBJECTS_TO_SPAWN 512
+#define OBJECTS_TO_SPAWN 1024
+#define SCALE 10
 
 void OrreyVk::Run() {
 	InitWindow();
@@ -37,7 +38,7 @@ void OrreyVk::Init() {
 	CopyBuffer(vertexStagingBuffer, m_bufferVertex, m_sphere.GetVerticesSize());
 	CopyBuffer(indexStagingBuffer, m_bufferIndex, m_sphere.GetIndiciesSize());
 
-	m_graphics.ubo.projection = glm::perspective(glm::radians(60.0f), m_vulkanResources->swapchain.GetDimensions().width / (float)m_vulkanResources->swapchain.GetDimensions().height, 0.1f, 10000.0f);
+	m_graphics.ubo.projection = glm::perspective(glm::radians(60.0f), m_vulkanResources->swapchain.GetDimensions().width / (float)m_vulkanResources->swapchain.GetDimensions().height, 0.1f, std::numeric_limits<float>::max());
 
 	m_graphics.ubo.view = glm::translate(glm::mat4(1.0f), glm::vec3(0.0, 0.0, m_camera.zoom));
 	m_camera.rotation.x = -90.0;
@@ -74,15 +75,38 @@ void OrreyVk::Init() {
 void OrreyVk::PrepareInstance()
 {
 	std::vector<CelestialObj> objects;
+	std::default_random_engine rndGenerator((unsigned)time(nullptr));
+	std::uniform_real_distribution<float> uniformDist(0.0, 1.0);
 
 	int objectsToSpawn = OBJECTS_TO_SPAWN;
 	while (objectsToSpawn % OBJECTS_PER_GROUP != 0)
 		objectsToSpawn--;
 
 	objects.resize(objectsToSpawn);
-	objects[0] = { glm::vec4(0.0f, 0.0f, 0.0f, 0.0f), glm::vec4(0.0, 0.0, 0.0, 0.0) };
-	for (int i = 1; i < objectsToSpawn; i++)
-		objects[i] = { glm::vec4(RandomRange(-100, 100), 0.0f, RandomRange(-100, 100), RandomRange(6.972e1, 6.972e10)), glm::vec4(RandomRange(0.01, 1.0), 0.0, 0.0, 0.0) };
+	objects[0] = { glm::vec4(0.0f, 0.0f, 0.0f, 0.0f), glm::vec4(0.0, 0.0, 0.0, 0.0), glm::vec4(0.0) };
+	double G = 0.0002959122083;
+	double GG = sqrt(4 * (M_PI * M_PI));
+	double v = sqrt(G / (0.39));
+	double v2 = sqrt(G / (0.723));
+	double v3 = sqrt(G / (1.0));
+	double v4 = sqrt(G / (1.524));
+
+	objects[1] = { glm::vec4(0.39 * SCALE, 0.0f, 0.0f, 1.651502e-7), glm::vec4(0.0, 0.0, v, 0.0), glm::vec4(0.1) };
+	objects[2] = { glm::vec4(0.723 * SCALE, 0.0f, 0.0f, 2.447225e-6), glm::vec4(0.0, 0.0,  v2, 0.0), glm::vec4(0.2) };
+	objects[3] = { glm::vec4(1.0 * SCALE, 0.0f, 0.0f, 3.0027e-6), glm::vec4(0.0, 0.0,  v3, 0.0), glm::vec4(0.5) };
+	objects[4] = { glm::vec4(1.524 * SCALE, 0.0f, 0.0f, 3.212921e-7), glm::vec4(0.0, 0.0,  v4, 0.0), glm::vec4(1.0) };
+	float mass = 3.2e21 / objectsToSpawn;
+	for (int i = 5; i < objectsToSpawn; i++)
+	{
+		//objects[i] = { glm::vec4(RandomRange(-100, 100), 0.0f, RandomRange(-100, 100), RandomRange(6.972e1, 6.972e10)), glm::vec4(RandomRange(-1.0, 1.0), 0.0, 0.0, 0.0) };
+		glm::vec2 ring0{ 50.0f, 60.0f };
+		float rho, theta;
+		rho = sqrt((pow(ring0[1], 2.0f) - pow(ring0[0], 2.0f)) * uniformDist(rndGenerator) + pow(ring0[0], 2.0f));
+		theta = 2.0 * M_PI * uniformDist(rndGenerator);
+		objects[i].position = glm::vec4(rho*cos(theta), uniformDist(rndGenerator) * 0.5f - 0.25f, rho*sin(theta), 6.972e10);
+		objects[i].velocity = glm::vec4(objects[i].position.z * 0.0052f, 0.0f, -objects[i].position.x * 0.0052f, 0.0f); //CW rotation
+		objects[i].scale = glm::vec4(0.0);
+	}
 
 	uint32_t size = objects.size() * sizeof(CelestialObj);
 	vko::Buffer instanceStagingBuffer = CreateBuffer(size, vk::BufferUsageFlagBits::eTransferSrc, objects.data());
@@ -227,6 +251,7 @@ void OrreyVk::CreateGraphicsPipeline()
 
 	std::vector<vk::VertexInputAttributeDescription> vertexAttributeDescriptions = m_sphere.GetVertexAttributeDescription();
 	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(2, 1, vk::Format::eR32G32B32A32Sfloat, offsetof(CelestialObj, position)));
+	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(3, 1, vk::Format::eR32G32B32A32Sfloat, offsetof(CelestialObj, scale)));
 
 	std::vector<vk::VertexInputBindingDescription> bindingDesc = { m_sphere.GetVertexBindingDescription() };
 	bindingDesc.push_back(vk::VertexInputBindingDescription(1, sizeof(CelestialObj), vk::VertexInputRate::eInstance));
@@ -348,6 +373,8 @@ void OrreyVk::UpdateCameraUniformBuffer()
 void OrreyVk::UpdateComputeUniformBuffer()
 {
 	m_compute.ubo.deltaT = m_frameTime;
+	m_compute.ubo.speed = m_speed;
+	spdlog::info("{}", m_speed);
 	memcpy(m_compute.uniformBuffer.mapped, &m_compute.ubo, sizeof(m_compute.ubo));
 }
 
@@ -356,6 +383,7 @@ void OrreyVk::PrepareCompute()
 	//Compute Uniform buffer
 	m_compute.uniformBuffer = CreateBuffer(sizeof(m_compute.ubo), vk::BufferUsageFlagBits::eUniformBuffer);
 	m_compute.ubo.objectCount = m_bufferInstance.size / sizeof(CelestialObj);
+	m_compute.ubo.scale = SCALE;
 	m_compute.uniformBuffer.Map();
 	UpdateComputeUniformBuffer();
 
@@ -501,17 +529,25 @@ void OrreyVk::MainLoop() {
 }
 
 void OrreyVk::Cleanup() {
-	Vulkan::Cleanup();
-
+	m_vulkanResources->device.waitIdle();
 	m_bufferVertex.Destroy();
 	m_bufferIndex.Destroy();
-	m_graphics.uniformBuffer.Destroy();
+	m_bufferInstance.Destroy();
 
+	m_graphics.uniformBuffer.Destroy();
 	m_vulkanResources->device.destroyDescriptorSetLayout(m_graphics.descriptorSetLayout);
-	m_vulkanResources->device.destroyDescriptorPool(m_vulkanResources->descriptorPool);
-	
 	m_vulkanResources->device.destroyPipeline(m_graphics.pipeline);
 	m_vulkanResources->device.destroyPipelineLayout(m_graphics.pipelineLayout);
+	m_vulkanResources->device.destroySemaphore(m_graphics.semaphore);
+
+	m_compute.uniformBuffer.Destroy();
+	m_compute.commandPool.Destroy();
+	m_vulkanResources->device.destroyDescriptorSetLayout(m_compute.descriptorSetLayout);
+	m_vulkanResources->device.destroyPipeline(m_compute.pipeline);
+	m_vulkanResources->device.destroyPipelineLayout(m_compute.pipelineLayout);
+	m_vulkanResources->device.destroySemaphore(m_compute.semaphore);
+	m_vulkanResources->device.destroyFence(m_compute.fence);
+	Vulkan::Cleanup();
 
 	glfwDestroyWindow(m_window);
 

@@ -2,7 +2,8 @@
 
 #ifndef ORREYVK_H
 #define ORREYVK_H
-
+#include <random>
+#include <limits>
 #include <GLFW/glfw3.h>
 #include <spdlog/spdlog.h>
 #include "Vulkan.h"
@@ -18,7 +19,7 @@ public:
 	
 	struct {
 		glm::vec2 mousePos = glm::vec2();
-		float zoom = -100.0f;
+		float zoom = -20.0f;
 		float rotationSpeed = 7.5f;
 		float movementSpeed = 1.0f;
 		bool viewUpdated = false;
@@ -33,6 +34,8 @@ public:
 			bool right = false;
 		} keys;
 	} m_camera;
+
+	float m_speed = 1.0f;
 
 	OrreyVk() {};
 
@@ -69,12 +72,15 @@ private:
 		struct {
 			float deltaT;
 			int32_t objectCount;
+			int32_t scale;
+			float speed;
 		} ubo;
 	} m_compute;
 
 	struct CelestialObj {
 		glm::vec4 position;
 		glm::vec4 velocity;
+		glm::vec4 scale;
 	};
 
 	vko::Buffer m_bufferVertex;

@@ -53,7 +53,12 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		case GLFW_KEY_D:
 			app->m_camera.keys.right = true;
 			break;
-
+		case GLFW_KEY_KP_ADD:
+			app->m_speed += 10.0f;
+			break;
+		case GLFW_KEY_KP_SUBTRACT:
+			app->m_speed -= 10.0f;
+			break;
 		}
 	}
 

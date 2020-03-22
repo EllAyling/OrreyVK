@@ -1,9 +1,11 @@
 #version 450
+#define M_PI 3.1415926535897932384626433832795
 
 struct CelestialObj
 {
 	vec4 pos;
 	vec4 vel;
+  vec4 scale;
 };
 
 // Binding 0 : Position storage buffer
@@ -18,6 +20,8 @@ layout (binding = 1) uniform UBO
 {
 	float deltaT;
 	int objectCount;
+  int scale;
+  float speed;
 } ubo;
 
 void main() 
@@ -31,20 +35,28 @@ void main()
   // Read position and velocity
   vec3 vPos = celestialObj[index].pos.xyz;
   vec3 vVel = celestialObj[index].vel.xyz;
-  float xT = vPos.x;
-  float zT = vPos.z;
+  float xT = vPos.x / ubo.scale;
+  float zT = vPos.z / ubo.scale;
   float xV = vVel.x;
   float zV = vVel.z;
+  float G = 0.0002959122083;
   if(xT != 0.0 || zT != 0.0)
   {
     float radius = sqrt((xT * xT) + (zT * zT));
-    float gravAcc = 6.6742e-11 * (celestialObj[index].pos.w / (radius * radius));
+    float gravAcc = (G * celestialObj[index].pos.w) / (radius * radius);
     float angle = atan(xT, zT);
-    xV += sin(angle) * gravAcc;
-    zV += cos(angle) * gravAcc;
 
-    xT -= xV;
-    zT -= zV;
+    float acc = gravAcc / celestialObj[index].pos.w;
+    
+    xV += (sin(angle) * acc * ubo.deltaT * ubo.speed);
+    zV += (cos(angle) * acc * ubo.deltaT * ubo.speed);
+
+    xT -= xV * ubo.deltaT * ubo.speed;
+    zT -= zV * ubo.deltaT * ubo.speed;
+
+    xT *= ubo.scale;
+    zT *= ubo.scale;
+
     // Write back
     celestialObj[index].pos.x = xT;
     celestialObj[index].pos.z = zT;

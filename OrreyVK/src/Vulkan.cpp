@@ -26,6 +26,7 @@ void Vulkan::Cleanup()
 
 	m_vulkanResources->commandPool.Destroy();
 	m_vulkanResources->commandPoolTransfer.Destroy();
+	m_vulkanResources->device.destroyDescriptorPool(m_vulkanResources->descriptorPool);
 	
 	for (auto& framebuffer : m_vulkanResources->frameBuffers)
 		m_vulkanResources->device.destroyFramebuffer(framebuffer);
