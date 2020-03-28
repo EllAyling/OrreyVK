@@ -5,6 +5,7 @@ layout(location = 1) in vec3 vtxColourIn;
 
 layout(location = 2) in vec4 instancePosIn;
 layout(location = 3) in vec4 scale;
+layout(location = 4) in vec4 rotation;
 
 layout(location = 1) out vec3 fragColourIn;
 
@@ -17,32 +18,32 @@ layout (binding = 2) uniform UBO
 
 void main() {
 
+	mat3 matX;
+	float s = sin(rotation.x);
+	float c = cos(rotation.x);
+
+	matX[0] = vec3(c, s, 0.0);
+	matX[1] = vec3(-s, c, 0.0);
+	matX[2] = vec3(0.0, 0.0, 1.0);
+
 	mat3 matY;
-	float s = sin(180.0);
-	float c = cos(180.0);
+	s = sin(rotation.y);
+	c = cos(rotation.y);
 	
 	matY[0] = vec3(c, 0.0, s);
 	matY[1] = vec3(0.0, 1.0, 0.0);
 	matY[2] = vec3(-s, 0.0, c);
 
 	mat3 matZ;
-	s = sin(90.0);
-	c = cos(90.0);	
+	s = sin(rotation.z);
+	c = cos(rotation.z);
 	
 	matZ[0] = vec3(1.0, 0.0, 0.0);
 	matZ[1] = vec3(0.0, c, s);
 	matZ[2] = vec3(0.0, -s, c);
 
-	mat3 rotMat = matZ * matY;
+	mat3 rotMat = matX * matZ * matY;
 	
-	mat4 gRotMat;
-	s = sin(180.0);
-	c = cos(180.0);
-	gRotMat[0] = vec4(c, 0.0, s, 0.0);
-	gRotMat[1] = vec4(0.0, 1.0, 0.0, 0.0);
-	gRotMat[2] = vec4(-s, 0.0, c, 0.0);
-	gRotMat[3] = vec4(0.0, 0.0, 0.0, 1.0);	
-
 	vec4 locPos = vec4(vtxPosIn.xyz * rotMat, 1.0);
 	vec4 pos = vec4((locPos.xyz * scale.x) + instancePosIn.xyz, 1.0);
 	

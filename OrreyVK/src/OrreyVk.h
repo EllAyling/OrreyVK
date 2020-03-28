@@ -78,9 +78,11 @@ private:
 	} m_compute;
 
 	struct CelestialObj {
-		glm::vec4 position;
-		glm::vec4 velocity;
-		glm::vec4 scale;
+		glm::vec4 position; //xyz Position, w Mass
+		glm::vec4 velocity; //xyz Velocity
+		glm::vec4 scale;	//xyz Scale
+		glm::vec4 rotation; //xyz Current rotation on each axis
+		glm::vec4 rotationSpeed; //xyz Rotation speed for each axis
 	};
 
 	vko::Buffer m_bufferVertex;

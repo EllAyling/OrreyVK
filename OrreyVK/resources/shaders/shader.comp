@@ -6,6 +6,8 @@ struct CelestialObj
 	vec4 pos;
 	vec4 vel;
   vec4 scale;
+  vec4 rotation;
+  vec4 rotationSpeed;
 };
 
 // Binding 0 : Position storage buffer
@@ -23,6 +25,14 @@ layout (binding = 1) uniform UBO
   int scale;
   float speed;
 } ubo;
+
+float UpdateRotation(float currentRotation, float rotationSpeed)
+{
+  float newRotation = currentRotation;
+  newRotation += rotationSpeed;
+  if(newRotation >= (2 * M_PI)) { newRotation = 0; }
+  return newRotation;
+}
 
 void main() 
 {
@@ -63,6 +73,14 @@ void main()
 
     celestialObj[index].vel.x = xV;
     celestialObj[index].vel.z = zV;
+
+    //Rotation
+    vec4 newRotation = celestialObj[index].rotation;
+    newRotation.x = UpdateRotation(newRotation.x, celestialObj[index].rotationSpeed.x * ubo.deltaT * ubo.speed);
+    newRotation.y = UpdateRotation(newRotation.y, celestialObj[index].rotationSpeed.y * ubo.deltaT * ubo.speed);
+    newRotation.z = UpdateRotation(newRotation.z, celestialObj[index].rotationSpeed.z * ubo.deltaT * ubo.speed);
+
+    celestialObj[index].rotation = newRotation;
   }
   
 }

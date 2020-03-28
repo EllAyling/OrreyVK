@@ -83,19 +83,19 @@ void OrreyVk::PrepareInstance()
 		objectsToSpawn--;
 
 	objects.resize(objectsToSpawn);
-	objects[0] = { glm::vec4(0.0f, 0.0f, 0.0f, 0.0f), glm::vec4(0.0, 0.0, 0.0, 0.0), glm::vec4(5) };
+	objects[0] = { glm::vec4(0.0f, 0.0f, 0.0f, 0.0f), glm::vec4(0.0, 0.0, 0.0, 0.0), glm::vec4(5) }; //Sun
 	//Converted G constant for AU/SM
 	double G = 0.0002959122083;
 	auto initialVelocity = [G](float r) { return sqrt(G / r);  };
-	//Distance in AU, mass in Solar Mass
-	objects[1] = { glm::vec4(0.39 * SCALE, 0.0f, 0.0f, 1.651502e-7), glm::vec4(0.0, 0.0, initialVelocity(0.39), 0.0), glm::vec4(0.0553) };
-	objects[2] = { glm::vec4(0.723 * SCALE, 0.0f, 0.0f, 2.447225e-6), glm::vec4(0.0, 0.0,  initialVelocity(0.723), 0.0), glm::vec4(0.949) };
-	objects[3] = { glm::vec4(1.0 * SCALE, 0.0f, 0.0f, 3.0027e-6), glm::vec4(0.0, 0.0,  initialVelocity(1.0), 0.0), glm::vec4(1.0) };
-	objects[4] = { glm::vec4(1.524 * SCALE, 0.0f, 0.0f, 3.212921e-7), glm::vec4(0.0, 0.0,  initialVelocity(1.524), 0.0), glm::vec4(0.532) };
-	objects[5] = { glm::vec4(5.2 * SCALE, 0.0f, 0.0f, 9.543e-4), glm::vec4(0.0, 0.0,  initialVelocity(5.2), 0.0), glm::vec4(11.21) };
-	objects[6] = { glm::vec4(9.5 * SCALE, 0.0f, 0.0f, 2.857e-4), glm::vec4(0.0, 0.0,  initialVelocity(9.5), 0.0), glm::vec4(9.45) };
-	objects[7] = { glm::vec4(19.2 * SCALE, 0.0f, 0.0f, 4.365e-5), glm::vec4(0.0, 0.0,  initialVelocity(19.2), 0.0), glm::vec4(4.01) };
-	objects[8] = { glm::vec4(30.0 * SCALE, 0.0f, 0.0f, 5.149e-5), glm::vec4(0.0, 0.0,  initialVelocity(30.0), 0.0), glm::vec4(3.88) };
+	//Distance in AU, mass in Solar Mass, rotation in radians
+	objects[1] = { glm::vec4(0.39 * SCALE, 0.0f, 0.0f, 1.651502e-7), glm::vec4(0.0, 0.0, initialVelocity(0.39), 0.0), glm::vec4(0.0553) };		//Mercury
+	objects[2] = { glm::vec4(0.723 * SCALE, 0.0f, 0.0f, 2.447225e-6), glm::vec4(0.0, 0.0,  initialVelocity(0.723), 0.0), glm::vec4(0.949) };	//Venus
+	objects[3] = { glm::vec4(1.0 * SCALE, 0.0f, 0.0f, 3.0027e-6), glm::vec4(0.0, 0.0,  initialVelocity(1.0), 0.0), glm::vec4(1.0), glm::vec4(3.14, 0.0, 0.0, 0.0), glm::vec4(0.5f, 0.0, 0.0, 0.0)};			//Earth
+	objects[4] = { glm::vec4(1.524 * SCALE, 0.0f, 0.0f, 3.212921e-7), glm::vec4(0.0, 0.0,  initialVelocity(1.524), 0.0), glm::vec4(0.532) };	//Mars
+	objects[5] = { glm::vec4(5.2 * SCALE, 0.0f, 0.0f, 9.543e-4), glm::vec4(0.0, 0.0,  initialVelocity(5.2), 0.0), glm::vec4(11.21) };			//Jupiter
+	objects[6] = { glm::vec4(9.5 * SCALE, 0.0f, 0.0f, 2.857e-4), glm::vec4(0.0, 0.0,  initialVelocity(9.5), 0.0), glm::vec4(9.45) };			//Saturn
+	objects[7] = { glm::vec4(19.2 * SCALE, 0.0f, 0.0f, 4.365e-5), glm::vec4(0.0, 0.0,  initialVelocity(19.2), 0.0), glm::vec4(4.01) };			//Uranus
+	objects[8] = { glm::vec4(30.0 * SCALE, 0.0f, 0.0f, 5.149e-5), glm::vec4(0.0, 0.0,  initialVelocity(30.0), 0.0), glm::vec4(3.88) };			//Neptune
 	float mass = 1.201657180090000162e-9 / objectsToSpawn;
 
 	for (int i = 9; i < objectsToSpawn; i++)
@@ -113,6 +113,8 @@ void OrreyVk::PrepareInstance()
 		
 		objects[i].velocity = glm::vec4((normalisedPos.z * vel), 0.0f, (-normalisedPos.x * vel), 0.0f); //CW rotation
 		objects[i].scale = glm::vec4(0.1);
+		objects[i].rotation = glm::vec4(M_PI * uniformDist(rndGenerator), M_PI * uniformDist(rndGenerator), M_PI * uniformDist(rndGenerator), 0.0f);
+		objects[i].rotationSpeed = glm::vec4(1.0 * uniformDist(rndGenerator), 1.0 * uniformDist(rndGenerator), 1.0 * uniformDist(rndGenerator), 0.0f);
 	}
 
 	uint32_t size = objects.size() * sizeof(CelestialObj);
@@ -259,6 +261,7 @@ void OrreyVk::CreateGraphicsPipeline()
 	std::vector<vk::VertexInputAttributeDescription> vertexAttributeDescriptions = m_sphere.GetVertexAttributeDescription();
 	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(2, 1, vk::Format::eR32G32B32A32Sfloat, offsetof(CelestialObj, position)));
 	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(3, 1, vk::Format::eR32G32B32A32Sfloat, offsetof(CelestialObj, scale)));
+	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(4, 1, vk::Format::eR32G32B32A32Sfloat, offsetof(CelestialObj, rotation)));
 
 	std::vector<vk::VertexInputBindingDescription> bindingDesc = { m_sphere.GetVertexBindingDescription() };
 	bindingDesc.push_back(vk::VertexInputBindingDescription(1, sizeof(CelestialObj), vk::VertexInputRate::eInstance));
