@@ -9,6 +9,7 @@ SolidSphere::SolidSphere(float radius, size_t stacks, size_t slices)		//Create t
 {
 	// Adapated from: https://github.com/Erkaman/cute-deferred-shading/blob/master/src/main.cpp#L573
 
+	float lengthInv = 1.0 / radius;
 	// loop through stacks.
 	for (int i = 0; i <= stacks; ++i) {
 
@@ -26,7 +27,7 @@ SolidSphere::SolidSphere(float radius, size_t stacks, size_t slices)		//Create t
 			float y = cos(phi) * radius;
 			float z = sin(theta) * sin(phi) * radius;
 
-			vertices.push_back({ { x, y, z }, { x, y, z, 1.0 } });
+			vertices.push_back({ { x, y, z }, { x, y, z, 1.0 }, {(float)j / slices, (float)i / stacks, 0.0} });
 		}
 	}
 
@@ -56,6 +57,7 @@ std::vector<vk::VertexInputAttributeDescription> SolidSphere::GetVertexAttribute
 {
 	return std::vector<vk::VertexInputAttributeDescription>{
 						vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32B32Sfloat, offsetof(VulkanTools::VertexInput, pos)),
-						vk::VertexInputAttributeDescription(1, 0, vk::Format::eR32G32B32Sfloat, offsetof(VulkanTools::VertexInput, colour))
+						vk::VertexInputAttributeDescription(1, 0, vk::Format::eR32G32B32A32Sfloat, offsetof(VulkanTools::VertexInput, colour)),
+						vk::VertexInputAttributeDescription(2, 0, vk::Format::eR32G32B32Sfloat, offsetof(VulkanTools::VertexInput, uv))
 	};
 }

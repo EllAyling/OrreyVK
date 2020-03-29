@@ -90,16 +90,18 @@ namespace VulkanTools {
 		Queue present;
 	};
 
-	struct ImagePair
+	struct ImageResources
 	{
 		vk::Image image;
 		vk::ImageView imageView;
+		vk::DeviceMemory memory;
 
-		ImagePair() { };
-		ImagePair(vk::Image image, vk::ImageView imageView)
+		ImageResources() { };
+		ImageResources(vk::Image image, vk::ImageView imageView, vk::DeviceMemory memory)
 		{
 			this->image = image;
 			this->imageView = imageView;
+			this->memory = memory;
 		}
 	};
 
@@ -107,6 +109,7 @@ namespace VulkanTools {
 	{
 		glm::vec3 pos;
 		glm::vec4 colour;
+		glm::vec3 uv;
 	};
 }
 #endif

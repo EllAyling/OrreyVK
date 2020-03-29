@@ -2,12 +2,14 @@
 
 layout(location = 0) in vec3 vtxPosIn;
 layout(location = 1) in vec3 vtxColourIn;
+layout(location = 2) in vec3 vtxUVIn;
 
-layout(location = 2) in vec4 instancePosIn;
-layout(location = 3) in vec4 scale;
-layout(location = 4) in vec4 rotation;
+layout(location = 3) in vec4 instancePosIn;
+layout(location = 4) in vec4 scale;
+layout(location = 5) in vec4 rotation;
 
 layout(location = 1) out vec3 fragColourIn;
+layout(location = 2) out vec3 fragUVIn;
 
 layout (binding = 2) uniform UBO 
 {
@@ -50,4 +52,6 @@ void main() {
 	gl_Position = ubo.projection * ubo.view * ubo.model * pos;
     
 	fragColourIn = vtxColourIn;
+	fragUVIn = vtxUVIn;
+	fragUVIn.z = scale.w;
 }

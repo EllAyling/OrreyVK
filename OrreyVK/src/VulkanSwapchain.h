@@ -12,8 +12,8 @@ namespace vko {
 		vk::Device device;
 		vk::PhysicalDevice physicalDevice;
 		vk::SwapchainKHR swapchain;
-		std::vector<VulkanTools::ImagePair> swapchainImages;
-		VulkanTools::ImagePair depthImage;
+		std::vector<VulkanTools::ImageResources> swapchainImages;
+		VulkanTools::ImageResources depthImage;
 
 		uint32_t numOfImages = 0;
 		vk::Format swapchainFormat = vk::Format::eUndefined;
@@ -49,18 +49,18 @@ namespace vko {
 			for (auto& image : images)
 			{
 				imageViewCreateInfo.image = image;
-				swapchainImages.push_back(VulkanTools::ImagePair(image, this->device.createImageView(imageViewCreateInfo)));
+				swapchainImages.push_back(VulkanTools::ImageResources(image, this->device.createImageView(imageViewCreateInfo), nullptr));
 			}
 		}
 
 		~VulkanSwapchain() {};
 
-		std::vector<VulkanTools::ImagePair> GetImages();
+		std::vector<VulkanTools::ImageResources> GetImages();
 
 		uint32_t GetImageCount() { return numOfImages; }
 		vk::Format GetSwapchainFormat() { return swapchainFormat; }
-		void SetDepthImage(VulkanTools::ImagePair depthImage) { this->depthImage = depthImage; }
-		VulkanTools::ImagePair GetDepthImage() { return depthImage; }
+		void SetDepthImage(VulkanTools::ImageResources depthImage) { this->depthImage = depthImage; }
+		VulkanTools::ImageResources GetDepthImage() { return depthImage; }
 		vk::Extent2D GetDimensions() { return dimensions; }
 		vk::SwapchainKHR GetVkObject() { return swapchain; }
 

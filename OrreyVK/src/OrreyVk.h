@@ -80,7 +80,7 @@ private:
 	struct CelestialObj {
 		glm::vec4 position; //xyz Position, w Mass
 		glm::vec4 velocity; //xyz Velocity
-		glm::vec4 scale;	//xyz Scale
+		glm::vec4 scale;	//xyz Scale w texIndex
 		glm::vec4 rotation; //xyz Current rotation on each axis
 		glm::vec4 rotationSpeed; //xyz Rotation speed for each axis
 	};
@@ -88,6 +88,7 @@ private:
 	vko::Buffer m_bufferVertex;
 	vko::Buffer m_bufferIndex;
 	vko::Buffer m_bufferInstance;
+	vko::Image m_textureArrayPlanets;
 
 	void CreateCommandBuffers();
 	void CreateDescriptorPool();

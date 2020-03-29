@@ -26,6 +26,7 @@
     <ClInclude Include="src\VulkanCommandPool.h" />
     <ClInclude Include="src\VulkanSwapchain.h" />
     <ClInclude Include="src\Vulkan.h" />
+    <ClInclude Include="src\VulkanImage.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />

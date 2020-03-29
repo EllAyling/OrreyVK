@@ -59,6 +59,20 @@ void OrreyVk::Init() {
 
 	m_graphics.semaphore = m_vulkanResources->device.createSemaphore(vk::SemaphoreCreateInfo());
 
+	//https://www.solarsystemscope.com/textures/
+	std::vector<const char*> paths = { 
+		"resources/sun.jpg", 
+		"resources/mercury.jpg",
+		"resources/venus.jpg",
+		"resources/earth.jpg",
+		"resources/mars.jpg",
+		"resources/jupiter.jpg",
+		"resources/saturn.jpg",
+		"resources/uranus.jpg",
+		"resources/neptune.jpg"
+	};
+	m_textureArrayPlanets = Create2DTextureArray(vk::Format::eR8G8B8A8Unorm, paths, vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst);
+	
 	PrepareInstance();
 
 	CreateDescriptorPool();
@@ -83,19 +97,19 @@ void OrreyVk::PrepareInstance()
 		objectsToSpawn--;
 
 	objects.resize(objectsToSpawn);
-	objects[0] = { glm::vec4(0.0f, 0.0f, 0.0f, 0.0f), glm::vec4(0.0, 0.0, 0.0, 0.0), glm::vec4(5) }; //Sun
+	objects[0] = { glm::vec4(0.0f, 0.0f, 0.0f, 0.0f), glm::vec4(0.0, 0.0, 0.0, 0.0), glm::vec4(5, 5, 5, 0) }; //Sun
 	//Converted G constant for AU/SM
 	double G = 0.0002959122083;
 	auto initialVelocity = [G](float r) { return sqrt(G / r);  };
-	//Distance in AU, mass in Solar Mass, rotation in radians
-	objects[1] = { glm::vec4(0.39 * SCALE, 0.0f, 0.0f, 1.651502e-7), glm::vec4(0.0, 0.0, initialVelocity(0.39), 0.0), glm::vec4(0.0553) };		//Mercury
-	objects[2] = { glm::vec4(0.723 * SCALE, 0.0f, 0.0f, 2.447225e-6), glm::vec4(0.0, 0.0,  initialVelocity(0.723), 0.0), glm::vec4(0.949) };	//Venus
-	objects[3] = { glm::vec4(1.0 * SCALE, 0.0f, 0.0f, 3.0027e-6), glm::vec4(0.0, 0.0,  initialVelocity(1.0), 0.0), glm::vec4(1.0), glm::vec4(3.14, 0.0, 0.0, 0.0), glm::vec4(0.5f, 0.0, 0.0, 0.0)};			//Earth
-	objects[4] = { glm::vec4(1.524 * SCALE, 0.0f, 0.0f, 3.212921e-7), glm::vec4(0.0, 0.0,  initialVelocity(1.524), 0.0), glm::vec4(0.532) };	//Mars
-	objects[5] = { glm::vec4(5.2 * SCALE, 0.0f, 0.0f, 9.543e-4), glm::vec4(0.0, 0.0,  initialVelocity(5.2), 0.0), glm::vec4(11.21) };			//Jupiter
-	objects[6] = { glm::vec4(9.5 * SCALE, 0.0f, 0.0f, 2.857e-4), glm::vec4(0.0, 0.0,  initialVelocity(9.5), 0.0), glm::vec4(9.45) };			//Saturn
-	objects[7] = { glm::vec4(19.2 * SCALE, 0.0f, 0.0f, 4.365e-5), glm::vec4(0.0, 0.0,  initialVelocity(19.2), 0.0), glm::vec4(4.01) };			//Uranus
-	objects[8] = { glm::vec4(30.0 * SCALE, 0.0f, 0.0f, 5.149e-5), glm::vec4(0.0, 0.0,  initialVelocity(30.0), 0.0), glm::vec4(3.88) };			//Neptune
+	//				Distance in AU						 Mass in Solar Mass,				Velocity in AU					Scale as ratio of Earth				Texture index   Rotation						Rotation Speed
+	objects[1] = { glm::vec4(0.39	* SCALE, 0.0f, 0.0f, 1.651502e-7),	glm::vec4(0.0, 0.0,	initialVelocity(0.39),	0.0),	glm::vec4(0.0553, 0.0553, 0.0553,	1), glm::vec4(3.14, 0.0, 0.0, 0.0), glm::vec4(0.5f, 0.0, 0.0, 0.0) };		//Mercury
+	objects[2] = { glm::vec4(0.723	* SCALE, 0.0f, 0.0f, 2.447225e-6),	glm::vec4(0.0, 0.0, initialVelocity(0.723), 0.0),	glm::vec4(0.949, 0.949, 0.949,		2), glm::vec4(3.14, 0.0, 0.0, 0.0), glm::vec4(0.5f, 0.0, 0.0, 0.0) };		//Venus
+	objects[3] = { glm::vec4(1.0	* SCALE, 0.0f, 0.0f, 3.0027e-6),	glm::vec4(0.0, 0.0, initialVelocity(1.0),	0.0),	glm::vec4(1.0, 1.0, 1.0,			3), glm::vec4(3.14, 0.0, 0.0, 0.0), glm::vec4(0.5f, 0.0, 0.0, 0.0) };		//Earth
+	objects[4] = { glm::vec4(1.524	* SCALE, 0.0f, 0.0f, 3.212921e-7),	glm::vec4(0.0, 0.0, initialVelocity(1.524), 0.0),	glm::vec4(0.532, 0.532, 0.532,		4), glm::vec4(3.14, 0.0, 0.0, 0.0), glm::vec4(0.5f, 0.0, 0.0, 0.0) };		//Mars
+	objects[5] = { glm::vec4(5.2	* SCALE, 0.0f, 0.0f, 9.543e-4),		glm::vec4(0.0, 0.0, initialVelocity(5.2),	0.0),	glm::vec4(11.21, 11.21, 11.21,		5), glm::vec4(3.14, 0.0, 0.0, 0.0), glm::vec4(0.5f, 0.0, 0.0, 0.0) };		//Jupiter
+	objects[6] = { glm::vec4(9.5	* SCALE, 0.0f, 0.0f, 2.857e-4),		glm::vec4(0.0, 0.0, initialVelocity(9.5),	0.0),	glm::vec4(9.45, 9.45, 9.45,			6), glm::vec4(3.14, 0.0, 0.0, 0.0), glm::vec4(0.5f, 0.0, 0.0, 0.0) };		//Saturn
+	objects[7] = { glm::vec4(19.2	* SCALE, 0.0f, 0.0f, 4.365e-5),		glm::vec4(0.0, 0.0, initialVelocity(19.2),	0.0),	glm::vec4(4.01, 4.01, 4.01,			7), glm::vec4(3.14, 0.0, 0.0, 0.0), glm::vec4(0.5f, 0.0, 0.0, 0.0) };		//Uranus
+	objects[8] = { glm::vec4(30.0	* SCALE, 0.0f, 0.0f, 5.149e-5),		glm::vec4(0.0, 0.0, initialVelocity(30.0),	0.0),	glm::vec4(3.88, 3.88, 3.88,			8), glm::vec4(3.14, 0.0, 0.0, 0.0), glm::vec4(0.5f, 0.0, 0.0, 0.0) };		//Neptune
 	float mass = 1.201657180090000162e-9 / objectsToSpawn;
 
 	for (int i = 9; i < objectsToSpawn; i++)
@@ -112,7 +126,7 @@ void OrreyVk::PrepareInstance()
 		glm::vec3 normalisedPos = glm::vec3(objects[i].position.x / mag, objects[i].position.y, objects[i].position.z / mag);
 		
 		objects[i].velocity = glm::vec4((normalisedPos.z * vel), 0.0f, (-normalisedPos.x * vel), 0.0f); //CW rotation
-		objects[i].scale = glm::vec4(0.1);
+		objects[i].scale = glm::vec4(0.1, 0.1, 0.1, 0.0);
 		objects[i].rotation = glm::vec4(M_PI * uniformDist(rndGenerator), M_PI * uniformDist(rndGenerator), M_PI * uniformDist(rndGenerator), 0.0f);
 		objects[i].rotationSpeed = glm::vec4(1.0 * uniformDist(rndGenerator), 1.0 * uniformDist(rndGenerator), 1.0 * uniformDist(rndGenerator), 0.0f);
 	}
@@ -213,10 +227,11 @@ void OrreyVk::CreateDescriptorPool()
 	std::vector<vk::DescriptorPoolSize> poolSizes =
 	{
 		vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 2),
-		vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, 1)
+		vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, 1),
+		vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 1)
 	};
 
-	vk::DescriptorPoolCreateInfo poolInfo = vk::DescriptorPoolCreateInfo({}, 3, poolSizes.size(), poolSizes.data());
+	vk::DescriptorPoolCreateInfo poolInfo = vk::DescriptorPoolCreateInfo({}, 4, poolSizes.size(), poolSizes.data());
 	m_vulkanResources->descriptorPool = m_vulkanResources->device.createDescriptorPool(poolInfo);
 }
 
@@ -224,7 +239,8 @@ void OrreyVk::CreateDescriptorSetLayout()
 {
 	std::vector<vk::DescriptorSetLayoutBinding> layoutBindings =
 	{
-		vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex)
+		vk::DescriptorSetLayoutBinding(2, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex),
+		vk::DescriptorSetLayoutBinding(3, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment)
 	};
 
 	m_graphics.descriptorSetLayout = m_vulkanResources->device.createDescriptorSetLayout(vk::DescriptorSetLayoutCreateInfo({}, layoutBindings.size(), layoutBindings.data()));
@@ -237,7 +253,8 @@ void OrreyVk::CreateDescriptorSet()
 
 	std::vector<vk::WriteDescriptorSet> writeSets =
 	{
-		vk::WriteDescriptorSet(m_graphics.descriptorSet, 2, 0, 1, vk::DescriptorType::eUniformBuffer, {}, &(m_graphics.uniformBuffer.descriptor))
+		vk::WriteDescriptorSet(m_graphics.descriptorSet, 2, 0, 1, vk::DescriptorType::eUniformBuffer, {}, &(m_graphics.uniformBuffer.descriptor)),
+		vk::WriteDescriptorSet(m_graphics.descriptorSet, 3, 0, 1, vk::DescriptorType::eCombinedImageSampler, &(m_textureArrayPlanets.descriptor), {})
 	};
 
 	m_vulkanResources->device.updateDescriptorSets(writeSets.size(), writeSets.data(), 0, nullptr);
@@ -259,9 +276,9 @@ void OrreyVk::CreateGraphicsPipeline()
 	vk::PipelineShaderStageCreateInfo shaderStages[] = { vertShaderStage, fragShaderStage };
 
 	std::vector<vk::VertexInputAttributeDescription> vertexAttributeDescriptions = m_sphere.GetVertexAttributeDescription();
-	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(2, 1, vk::Format::eR32G32B32A32Sfloat, offsetof(CelestialObj, position)));
-	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(3, 1, vk::Format::eR32G32B32A32Sfloat, offsetof(CelestialObj, scale)));
-	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(4, 1, vk::Format::eR32G32B32A32Sfloat, offsetof(CelestialObj, rotation)));
+	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(3, 1, vk::Format::eR32G32B32A32Sfloat, offsetof(CelestialObj, position)));
+	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(4, 1, vk::Format::eR32G32B32A32Sfloat, offsetof(CelestialObj, scale)));
+	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(5, 1, vk::Format::eR32G32B32A32Sfloat, offsetof(CelestialObj, rotation)));
 
 	std::vector<vk::VertexInputBindingDescription> bindingDesc = { m_sphere.GetVertexBindingDescription() };
 	bindingDesc.push_back(vk::VertexInputBindingDescription(1, sizeof(CelestialObj), vk::VertexInputRate::eInstance));
@@ -276,7 +293,7 @@ void OrreyVk::CreateGraphicsPipeline()
 
 	vk::PipelineRasterizationStateCreateInfo rastierizer = vk::PipelineRasterizationStateCreateInfo();
 	rastierizer.cullMode = vk::CullModeFlagBits::eBack;
-	rastierizer.frontFace = vk::FrontFace::eCounterClockwise;
+	rastierizer.frontFace = vk::FrontFace::eClockwise;
 
 	vk::PipelineMultisampleStateCreateInfo msState = vk::PipelineMultisampleStateCreateInfo();
 
@@ -542,6 +559,7 @@ void OrreyVk::Cleanup() {
 	m_bufferVertex.Destroy();
 	m_bufferIndex.Destroy();
 	m_bufferInstance.Destroy();
+	m_textureArrayPlanets.Destroy();
 
 	m_graphics.uniformBuffer.Destroy();
 	m_vulkanResources->device.destroyDescriptorSetLayout(m_graphics.descriptorSetLayout);

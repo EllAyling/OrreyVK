@@ -1,7 +1,7 @@
 #include "VulkanSwapChain.h"
 namespace vko {
 
-	std::vector<VulkanTools::ImagePair> VulkanSwapchain::GetImages()
+	std::vector<VulkanTools::ImageResources> VulkanSwapchain::GetImages()
 	{
 		return swapchainImages;
 	}

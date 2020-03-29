@@ -12,9 +12,14 @@
 #include <spdlog/spdlog.h>
 #include <shaderc/shaderc.hpp>
 
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_STATIC
+#include <stb/stb_image.h>
+
 #include "VulkanSwapchain.h"
 #include "VulkanCommandPool.h"
 #include "VulkanBuffer.h"
+#include "VulkanImage.h"
 #include "Types.h"
 #include "SolidSphere.h"
 
@@ -68,13 +73,13 @@ public:
 	void InitVulkan(GLFWwindow* window);
 	void Cleanup();
 
-	vk::DeviceMemory AllocateAndBindMemory(vk::Image image, vk::MemoryPropertyFlags memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal);
-	vk::DeviceMemory AllocateAndBindMemory(vk::Buffer buffer, vk::MemoryPropertyFlags memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal);
+	vk::DeviceMemory AllocateAndBindMemory(vk::Image image, vk::MemoryPropertyFlags memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal, vk::MemoryAllocateInfo *allocInfoOut = nullptr);
+	vk::DeviceMemory AllocateAndBindMemory(vk::Buffer buffer, vk::MemoryPropertyFlags memoryFlags = vk::MemoryPropertyFlagBits::eDeviceLocal, vk::MemoryAllocateInfo *allocInfoOut = nullptr);
 
-	VulkanTools::ImagePair CreateImage(vk::ImageType imageType, vk::Format format, vk::Extent3D extent, vk::ImageUsageFlagBits usage, vk::ImageAspectFlagBits aspectFlags, vk::DeviceMemory* memoryOut = nullptr,
-		vk::ImageCreateFlagBits flags = {}, vk::SampleCountFlagBits samples = vk::SampleCountFlagBits::e1,
+	vko::Image CreateImage(vk::ImageType imageType, vk::Format format, vk::Extent3D extent, vk::ImageUsageFlags usage, vk::ImageAspectFlagBits aspectFlags,
+		vk::ImageCreateFlags flags = {}, vk::SampleCountFlagBits samples = vk::SampleCountFlagBits::e1,
 		vk::MemoryPropertyFlags memoryFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, 
-		vk::SharingMode sharingMode = vk::SharingMode::eExclusive, vk::ImageTiling tiling = vk::ImageTiling::eOptimal);
+		int layerCount = 1, vk::SharingMode sharingMode = vk::SharingMode::eExclusive, vk::ImageTiling tiling = vk::ImageTiling::eOptimal);
 
 	vko::Buffer CreateBuffer(uint32_t size, vk::BufferUsageFlags usage, const void* data = nullptr, vk::MemoryPropertyFlags memoryFlags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
 							vk::SharingMode sharingMode = vk::SharingMode::eExclusive);
@@ -82,6 +87,9 @@ public:
 	void CopyBuffer(vko::Buffer srcBuffer, vko::Buffer dstBuffer, vk::DeviceSize size);
 
 	vk::ShaderModule CompileShader(const std::string& fileName, shaderc_shader_kind type);
+
+	vko::Image CreateTexture(vk::ImageType imageType, vk::Format format, const char* filePath, vk::ImageUsageFlags usage);
+	vko::Image Create2DTextureArray(vk::Format format, std::vector<const char*> filePaths, vk::ImageUsageFlags usage);
 };
 
 #endif // !VULKAN_H

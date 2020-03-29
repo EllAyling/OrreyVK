@@ -409,8 +409,10 @@ void Vulkan::CreateSwapchain()
 
 	m_vulkanResources->swapchain = vko::VulkanSwapchain(m_vulkanResources->instance, m_vulkanResources->device, m_vulkanResources->physicalDevice, swapchainCreateInfo);
 	vk::DeviceMemory depthImageMemory;
-	m_vulkanResources->swapchain.SetDepthImage(CreateImage(vk::ImageType::e2D, vk::Format::eD32Sfloat,
-		vk::Extent3D(swapchainCreateInfo.imageExtent, 1), vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::ImageAspectFlagBits::eDepth, &depthImageMemory, vk::ImageCreateFlagBits(0), vk::SampleCountFlagBits::e1, vk::MemoryPropertyFlagBits::eDeviceLocal));
+	vko::Image depthImage = CreateImage(vk::ImageType::e2D, vk::Format::eD32Sfloat,
+		vk::Extent3D(swapchainCreateInfo.imageExtent, 1), vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::ImageAspectFlagBits::eDepth,
+		vk::ImageCreateFlagBits(0), vk::SampleCountFlagBits::e1, vk::MemoryPropertyFlagBits::eDeviceLocal);
+	m_vulkanResources->swapchain.SetDepthImage(VulkanTools::ImageResources(depthImage.image, depthImage.imageView, depthImage.memory));
 }
 
 void Vulkan::CreateRenderpass()
@@ -458,7 +460,7 @@ void Vulkan::CreateFramebuffers()
 	createInfo.layers = 1;
 	for (size_t i = 0; i < m_vulkanResources->swapchain.GetImageCount(); i++)
 	{
-		VulkanTools::ImagePair image = m_vulkanResources->swapchain.GetImages()[i];
+		VulkanTools::ImageResources image = m_vulkanResources->swapchain.GetImages()[i];
 		std::vector<vk::ImageView> attachments = { image.imageView, m_vulkanResources->swapchain.GetDepthImage().imageView };
 		createInfo.attachmentCount = attachments.size();
 		createInfo.pAttachments = attachments.data();
@@ -488,21 +490,25 @@ void Vulkan::CreateFencesAndSemaphores()
 	}
 }
 
-vk::DeviceMemory Vulkan::AllocateAndBindMemory(vk::Image image, vk::MemoryPropertyFlags memoryFlags)
+vk::DeviceMemory Vulkan::AllocateAndBindMemory(vk::Image image, vk::MemoryPropertyFlags memoryFlags, vk::MemoryAllocateInfo *allocInfoOut)
 {
 	vk::MemoryRequirements memRequirements = m_vulkanResources->device.getImageMemoryRequirements(image);
 	vk::MemoryAllocateInfo allocInfo = vk::MemoryAllocateInfo(memRequirements.size, GetMemoryTypeIndex(memRequirements.memoryTypeBits, memoryFlags));
 	vk::DeviceMemory memoryOut = m_vulkanResources->device.allocateMemory(allocInfo);
 	m_vulkanResources->device.bindImageMemory(image, memoryOut, 0);
+	if (allocInfoOut != nullptr)
+		*allocInfoOut = allocInfo;
 	return memoryOut;
 }
 
-vk::DeviceMemory Vulkan::AllocateAndBindMemory(vk::Buffer buffer, vk::MemoryPropertyFlags memoryFlags)
+vk::DeviceMemory Vulkan::AllocateAndBindMemory(vk::Buffer buffer, vk::MemoryPropertyFlags memoryFlags, vk::MemoryAllocateInfo *allocInfoOut)
 {
 	vk::MemoryRequirements memRequirements = m_vulkanResources->device.getBufferMemoryRequirements(buffer);
 	vk::MemoryAllocateInfo allocInfo = vk::MemoryAllocateInfo(memRequirements.size, GetMemoryTypeIndex(memRequirements.memoryTypeBits, memoryFlags));
 	vk::DeviceMemory memoryOut = m_vulkanResources->device.allocateMemory(allocInfo);
 	m_vulkanResources->device.bindBufferMemory(buffer, memoryOut, 0);
+	if (allocInfoOut != nullptr)
+		*allocInfoOut = allocInfo;
 	return memoryOut;
 }
 
@@ -518,18 +524,17 @@ uint32_t Vulkan::GetMemoryTypeIndex(uint32_t typeFilter, vk::MemoryPropertyFlags
 	}
 }
 
-VulkanTools::ImagePair Vulkan::CreateImage(vk::ImageType imageType, vk::Format format, vk::Extent3D extent,
-	vk::ImageUsageFlagBits usage, vk::ImageAspectFlagBits aspectFlags, vk::DeviceMemory* memoryOut, vk::ImageCreateFlagBits flags, vk::SampleCountFlagBits samples,
-	vk::MemoryPropertyFlags memoryFlags, vk::SharingMode sharingMode,
+vko::Image Vulkan::CreateImage(vk::ImageType imageType, vk::Format format, vk::Extent3D extent,
+	vk::ImageUsageFlags usage, vk::ImageAspectFlagBits aspectFlags, vk::ImageCreateFlags flags, vk::SampleCountFlagBits samples,
+	vk::MemoryPropertyFlags memoryFlags, int layerCount, vk::SharingMode sharingMode,
 	vk::ImageTiling tiling)
 {
-	vk::ImageCreateInfo createInfo = vk::ImageCreateInfo(flags, imageType, format, extent, 1, 1, samples, tiling, usage, sharingMode, 0, nullptr);
+	vk::ImageCreateInfo createInfo = vk::ImageCreateInfo(flags, imageType, format, extent, 1, layerCount, samples, tiling, usage, sharingMode, 0, nullptr);
 
 	vk::Image image = m_vulkanResources->device.createImage(createInfo);
 
-	vk::DeviceMemory imageMemory = AllocateAndBindMemory(image, memoryFlags);
-	if (memoryOut != nullptr)
-		memoryOut = &imageMemory;
+	vk::MemoryAllocateInfo allocInfo;
+	vk::DeviceMemory imageMemory = AllocateAndBindMemory(image, memoryFlags, &allocInfo);
 
 	vk::ImageViewCreateInfo viewCreateInfo = vk::ImageViewCreateInfo({}, image);
 	viewCreateInfo.format = format;
@@ -537,7 +542,7 @@ VulkanTools::ImagePair Vulkan::CreateImage(vk::ImageType imageType, vk::Format f
 	viewCreateInfo.subresourceRange.baseMipLevel = 0;
 	viewCreateInfo.subresourceRange.levelCount = 1;
 	viewCreateInfo.subresourceRange.baseArrayLayer = 0;
-	viewCreateInfo.subresourceRange.layerCount = 1;
+	viewCreateInfo.subresourceRange.layerCount = layerCount;
 
 	vk::ImageViewType viewType = vk::ImageViewType::e1D;
 	switch (imageType)
@@ -546,7 +551,10 @@ VulkanTools::ImagePair Vulkan::CreateImage(vk::ImageType imageType, vk::Format f
 		viewCreateInfo.viewType = vk::ImageViewType::e1D;
 		break;
 	case vk::ImageType::e2D:
-		viewCreateInfo.viewType = vk::ImageViewType::e2D;
+		if (layerCount > 1)
+			viewCreateInfo.viewType = vk::ImageViewType::e2DArray;
+		else
+			viewCreateInfo.viewType = vk::ImageViewType::e2D;
 		break;
 	case vk::ImageType::e3D:
 		viewCreateInfo.viewType = vk::ImageViewType::e3D;
@@ -555,7 +563,7 @@ VulkanTools::ImagePair Vulkan::CreateImage(vk::ImageType imageType, vk::Format f
 
 	vk::ImageView imageView = m_vulkanResources->device.createImageView(viewCreateInfo);
 
-	return VulkanTools::ImagePair(image, imageView);
+	return vko::Image(m_vulkanResources->device, image, imageView, imageMemory, allocInfo.allocationSize, extent, vk::ImageLayout::eUndefined, usage, memoryFlags);
 }
 
 vko::Buffer Vulkan::CreateBuffer(uint32_t size, vk::BufferUsageFlags usage, const void* data, vk::MemoryPropertyFlags memoryFlags, vk::SharingMode sharingMode)
@@ -621,4 +629,157 @@ vk::ShaderModule Vulkan::CompileShader(const std::string& filename, shaderc_shad
 
 	spdlog::info("Compiled Shader: {}", filename);
 	return m_vulkanResources->device.createShaderModule(moduleCreateInfo);
+}
+
+vko::Image Vulkan::CreateTexture(vk::ImageType imageType, vk::Format format, const char * filePath, vk::ImageUsageFlags usage)
+{
+	int width;
+	int height;
+	int channels;
+
+	stbi_set_flip_vertically_on_load(false);
+	void* data = stbi_load(filePath, &width, &height, &channels, 4);
+
+	int memorySize = width * height * sizeof(unsigned char) * 4;
+
+	//	if (!(usage & vk::ImageUsageFlagBits::eTransferSrc))
+	//		usage |= vk::ImageUsageFlagBits::eTransferSrc;
+
+	vk::DeviceMemory imageMemory;
+	vko::Image textureImage = CreateImage(imageType, format, vk::Extent3D(width, height, 1), usage, vk::ImageAspectFlagBits::eColor, {}, vk::SampleCountFlagBits::e1, vk::MemoryPropertyFlagBits::eDeviceLocal);
+	vko::Buffer imageBuffer = CreateBuffer(memorySize, vk::BufferUsageFlagBits::eTransferSrc, data);
+
+	vk::CommandBuffer cmdBuffer = m_vulkanResources->commandPoolTransfer.AllocateCommandBuffer();
+	cmdBuffer.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+
+	vk::BufferMemoryBarrier bufBarrier = vk::BufferMemoryBarrier(
+		vk::AccessFlagBits::eHostWrite, vk::AccessFlagBits::eTransferRead,
+		0U, 0U,
+		imageBuffer.buffer, 0, imageBuffer.size
+	);
+
+	vk::ImageMemoryBarrier imgBarrier = vk::ImageMemoryBarrier({}, vk::AccessFlagBits::eTransferWrite,
+		vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
+		0U, 0U, textureImage.image,
+		vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+
+	cmdBuffer.pipelineBarrier(
+		vk::PipelineStageFlagBits::eHost, vk::PipelineStageFlagBits::eTransfer,
+		{}, {}, bufBarrier, imgBarrier);
+
+	vk::BufferImageCopy regions = vk::BufferImageCopy(0, width, height, 
+		vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1), 
+		vk::Offset3D(0, 0, 0), vk::Extent3D(width, height, 1));
+
+	cmdBuffer.copyBufferToImage(imageBuffer.buffer, textureImage.image, vk::ImageLayout::eTransferDstOptimal, regions);
+
+	cmdBuffer.end();
+
+	vk::SubmitInfo submitInfo = vk::SubmitInfo();
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &cmdBuffer;
+
+	m_vulkanResources->queueTransfer.submit({ submitInfo }, {});
+	m_vulkanResources->queueTransfer.waitIdle();
+	m_vulkanResources->commandPoolTransfer.FreeCommandBuffers({ cmdBuffer });
+
+	imageBuffer.Destroy();
+
+	stbi_image_free(data);
+
+	return textureImage;
+}
+
+vko::Image Vulkan::Create2DTextureArray(vk::Format format, std::vector<const char*> filePaths, vk::ImageUsageFlags usage)
+{
+	stbi_set_flip_vertically_on_load(false);
+	struct ImageInfo {
+		int size;
+		int width;
+		int height;
+	};
+
+	std::vector<ImageInfo> imageInfo;
+	int width;
+	int height;
+	int channels;
+	int totalMemorySize = 0;
+	
+	for (auto path : filePaths)
+	{
+		stbi_info(path, &width, &height, &channels);
+		ImageInfo imgInfo = { 
+			width * height * sizeof(unsigned char) * 4,
+			width, height
+			};
+		imageInfo.push_back(imgInfo);
+		totalMemorySize += imageInfo.back().size;
+	}
+
+	vk::BufferCreateInfo createInfo = vk::BufferCreateInfo({}, totalMemorySize, vk::BufferUsageFlagBits::eTransferSrc);
+	vk::Buffer buffer = m_vulkanResources->device.createBuffer(createInfo);
+	vk::DeviceMemory bufferMemory = AllocateAndBindMemory(buffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+	int offset = 0;
+	for (int i = 0; i < imageInfo.size(); i++)
+	{
+		void* data = stbi_load(filePaths[i], &width, &height, &channels, 4);
+		void* bufData;
+		bufData = m_vulkanResources->device.mapMemory(bufferMemory, offset, imageInfo[i].size);
+		memcpy(bufData, data, imageInfo[i].size);
+		m_vulkanResources->device.unmapMemory(bufferMemory);
+		offset += imageInfo[i].size;
+		stbi_image_free(data);
+	}
+
+	vko::Buffer imageBuffer = vko::Buffer(m_vulkanResources->device, bufferMemory, buffer, totalMemorySize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+	vk::DeviceMemory imageMemory;
+	vko::Image textureImage = CreateImage(vk::ImageType::e2D, format, vk::Extent3D(width, height, 1), usage, vk::ImageAspectFlagBits::eColor,
+		{}, vk::SampleCountFlagBits::e1, vk::MemoryPropertyFlagBits::eDeviceLocal, imageInfo.size());
+
+	vk::CommandBuffer cmdBuffer = m_vulkanResources->commandPoolTransfer.AllocateCommandBuffer();
+	cmdBuffer.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+
+	vk::BufferMemoryBarrier bufBarrier = vk::BufferMemoryBarrier(
+		vk::AccessFlagBits::eHostWrite, vk::AccessFlagBits::eTransferRead,
+		0U, 0U,
+		imageBuffer.buffer, 0, imageBuffer.size
+	);
+
+	vk::ImageMemoryBarrier imgBarrier = vk::ImageMemoryBarrier({}, vk::AccessFlagBits::eTransferWrite,
+		vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
+		0U, 0U, textureImage.image,
+		vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, imageInfo.size()));
+
+	cmdBuffer.pipelineBarrier(
+		vk::PipelineStageFlagBits::eHost, vk::PipelineStageFlagBits::eTransfer,
+		{}, {}, bufBarrier, imgBarrier);
+
+	std::vector<vk::BufferImageCopy> regions;
+	offset = 0;
+	for (int i = 0; i < imageInfo.size(); i++)
+	{
+		regions.emplace_back(vk::BufferImageCopy(offset, imageInfo[i].width, imageInfo[i].height,
+			vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, i, 1),
+			vk::Offset3D(0, 0, 0), vk::Extent3D(width, height, 1)));
+		offset += imageInfo[i].size;
+	}
+
+	cmdBuffer.copyBufferToImage(imageBuffer.buffer, textureImage.image, vk::ImageLayout::eTransferDstOptimal, regions);
+
+	cmdBuffer.end();
+
+	vk::SubmitInfo submitInfo = vk::SubmitInfo();
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &cmdBuffer;
+
+	m_vulkanResources->queueTransfer.submit({ submitInfo }, {});
+	m_vulkanResources->queueTransfer.waitIdle();
+	m_vulkanResources->commandPoolTransfer.FreeCommandBuffers({ cmdBuffer });
+
+	imageBuffer.Destroy();
+	
+
+	return textureImage;
 }
