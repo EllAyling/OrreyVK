@@ -54,10 +54,25 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			app->m_camera.keys.right = true;
 			break;
 		case GLFW_KEY_KP_ADD:
-			app->m_speed += 10.0f;
+			if (mods & GLFW_MOD_SHIFT)
+				if (mods & GLFW_MOD_CONTROL)
+					app->m_speed += 30.0f;
+				else
+					app->m_speed += 10.0f;
+			else
+				app->m_speed += 1.0f;
 			break;
 		case GLFW_KEY_KP_SUBTRACT:
-			app->m_speed -= 10.0f;
+			if (mods & GLFW_MOD_SHIFT)
+				if(mods & GLFW_MOD_CONTROL)
+					app->m_speed -= 30.0f;
+				else
+					app->m_speed -= 10.0f;
+			else
+				app->m_speed -= 1.0f;
+			break;
+		case GLFW_KEY_BACKSPACE:
+			app->m_speed = 1.0f;
 			break;
 		}
 	}

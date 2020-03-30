@@ -44,7 +44,7 @@ void main() {
 	matZ[1] = vec3(0.0, c, s);
 	matZ[2] = vec3(0.0, -s, c);
 
-	mat3 rotMat = matX * matZ * matY;
+	mat3 rotMat =  matZ * matY * matX; //Perform X rotation before Y
 	
 	vec4 locPos = vec4(vtxPosIn.xyz * rotMat, 1.0);
 	vec4 pos = vec4((locPos.xyz * scale.x) + instancePosIn.xyz, 1.0);

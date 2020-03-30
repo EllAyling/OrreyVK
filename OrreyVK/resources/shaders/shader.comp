@@ -30,7 +30,7 @@ float UpdateRotation(float currentRotation, float rotationSpeed)
 {
   float newRotation = currentRotation;
   newRotation += rotationSpeed;
-  if(newRotation >= (2 * M_PI)) { newRotation = 0; }
+  if(newRotation >= 2*M_PI) { newRotation = 0; }
   return newRotation;
 }
 
@@ -50,7 +50,7 @@ void main()
   float xV = vVel.x;
   float zV = vVel.z;
   float G = 0.0002959122083;
-  if(xT != 0.0 || zT != 0.0)
+  if(celestialObj[index].pos.w != 0.0)
   {
     float radius = sqrt((xT * xT) + (zT * zT));
     float gravAcc = (G * celestialObj[index].pos.w) / (radius * radius);
@@ -74,14 +74,15 @@ void main()
     celestialObj[index].vel.x = xV;
     celestialObj[index].vel.z = zV;
 
-    //Rotation
-    vec4 newRotation = celestialObj[index].rotation;
-    newRotation.x = UpdateRotation(newRotation.x, celestialObj[index].rotationSpeed.x * ubo.deltaT * ubo.speed);
-    newRotation.y = UpdateRotation(newRotation.y, celestialObj[index].rotationSpeed.y * ubo.deltaT * ubo.speed);
-    newRotation.z = UpdateRotation(newRotation.z, celestialObj[index].rotationSpeed.z * ubo.deltaT * ubo.speed);
-
-    celestialObj[index].rotation = newRotation;
   }
+  
+  //Rotation
+  vec4 newRotation = celestialObj[index].rotation;
+  newRotation.x = UpdateRotation(newRotation.x, celestialObj[index].rotationSpeed.x * ubo.deltaT * ubo.speed);
+  newRotation.y = UpdateRotation(newRotation.y, celestialObj[index].rotationSpeed.y * ubo.deltaT * ubo.speed);
+  newRotation.z = UpdateRotation(newRotation.z, celestialObj[index].rotationSpeed.z * ubo.deltaT * ubo.speed);
+
+  celestialObj[index].rotation = newRotation;
   
 }
 

@@ -27,7 +27,7 @@ SolidSphere::SolidSphere(float radius, size_t stacks, size_t slices)		//Create t
 			float y = cos(phi) * radius;
 			float z = sin(theta) * sin(phi) * radius;
 
-			vertices.push_back({ { x, y, z }, { x, y, z, 1.0 }, {(float)j / slices, (float)i / stacks, 0.0} });
+			vertices.push_back({ { x, y, z }, { x, y, z, 1.0 }, {1.0 - ((float)j / slices), 1.0 - ((float)i / stacks), 0.0} });
 		}
 	}
 

@@ -44,6 +44,8 @@ private:
 	SolidSphere m_sphere;
 
 	float m_frameTime = 1.0f;
+	float m_totalRunTime = 0.0f;
+	float m_seconds = 1.0f;
 	struct {
 		struct {
 			glm::mat4 projection;
