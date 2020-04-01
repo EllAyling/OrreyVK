@@ -36,7 +36,6 @@ public:
 	} m_camera;
 
 	float m_speed = 1.0f;
-
 	OrreyVk() {};
 
 private:
@@ -57,7 +56,9 @@ private:
 		vk::DescriptorSetLayout descriptorSetLayout;
 		vk::DescriptorSet descriptorSet;
 		vk::PipelineLayout pipelineLayout;
+		vk::PipelineLayout pipelineLayoutOrbit;
 		vk::Pipeline pipeline;
+		vk::Pipeline orbitPipeline;
 		vk::Semaphore semaphore;
 	} m_graphics;
 
@@ -91,6 +92,7 @@ private:
 	vko::Buffer m_bufferIndex;
 	vko::Buffer m_bufferInstance;
 	vko::Image m_textureArrayPlanets;
+	vko::Buffer m_bufferVertexOrbit;
 
 	void CreateCommandBuffers();
 	void CreateDescriptorPool();
@@ -105,6 +107,8 @@ private:
 	void UpdateCameraUniformBuffer();
 	void UpdateComputeUniformBuffer();
 	void PrepareCompute();
+
+	std::vector<glm::vec2> CalculateOrbitPoints(glm::vec4 pos, glm::vec4 vel, double G, float timestep, int plotPoints);
 
 	float RandomRange(float min, float max) { return min + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (max - min))); }
 

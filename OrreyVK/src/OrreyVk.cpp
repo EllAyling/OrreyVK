@@ -116,6 +116,13 @@ void OrreyVk::PrepareInstance()
 	objects[8] = { glm::vec4(30.0	* SCALE, 0.0f, 0.0f, 5.149e-5),		glm::vec4(0.0, 0.0, initialVelocity(30.0),	0.0),	glm::vec4(3.88, 3.88, 3.88,			8), glm::vec4(degToRad(-28.32), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(540), 0.0, 0.0) };		//Neptune
 	float mass = 1.201657180090000162e-9 / objectsToSpawn;
 
+	std::vector<glm::vec2> points = CalculateOrbitPoints(objects[3].position, objects[3].velocity, G, 1, 20 * 20);
+
+	vko::Buffer vertexStagingBuffer = CreateBuffer(points.size() * sizeof(glm::vec2), vk::BufferUsageFlagBits::eTransferSrc, points.data());
+	m_bufferVertexOrbit = CreateBuffer(m_sphere.GetVerticesSize(), vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, nullptr, vk::MemoryPropertyFlagBits::eDeviceLocal);
+	CopyBuffer(vertexStagingBuffer, m_bufferVertexOrbit, points.size() * sizeof(glm::vec2));
+	vertexStagingBuffer.Destroy();
+
 	for (int i = 9; i < objectsToSpawn; i++)
 	{
 		glm::vec2 ring0{ 2 * SCALE, 2.7 * SCALE };
@@ -207,6 +214,11 @@ void OrreyVk::CreateCommandBuffers()
 		m_vulkanResources->commandBuffers[i].bindVertexBuffers(1, m_bufferInstance.buffer, { 0 });
 		m_vulkanResources->commandBuffers[i].bindIndexBuffer(m_bufferIndex.buffer, { 0 }, vk::IndexType::eUint16);
 		m_vulkanResources->commandBuffers[i].drawIndexed(m_sphere.GetIndicies().size(), m_bufferInstance.size / sizeof(CelestialObj), 0, 0, 0);
+
+		m_vulkanResources->commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphics.orbitPipeline);		
+		m_vulkanResources->commandBuffers[i].bindVertexBuffers(0, m_bufferVertexOrbit.buffer, { 0 });
+		m_vulkanResources->commandBuffers[i].draw(20 * 20, 1, 0, 0);
+
 		m_vulkanResources->commandBuffers[i].endRenderPass();
 
 		if (m_queueIDs.graphics.familyID != m_queueIDs.compute.familyID)
@@ -268,6 +280,8 @@ void OrreyVk::CreateGraphicsPipelineLayout()
 {
 	vk::PipelineLayoutCreateInfo pipelineLayoutInfo = vk::PipelineLayoutCreateInfo({}, 1, &m_graphics.descriptorSetLayout);
 	m_graphics.pipelineLayout = m_vulkanResources->device.createPipelineLayout(pipelineLayoutInfo);
+	//pipelineLayoutInfo = vk::PipelineLayoutCreateInfo();
+	//m_graphics.pipelineLayoutOrbit = m_vulkanResources->device.createPipelineLayout(pipelineLayoutInfo);
 }
 
 void OrreyVk::CreateGraphicsPipeline()
@@ -329,6 +343,22 @@ void OrreyVk::CreateGraphicsPipeline()
 	pipelineInfo.subpass = 0;
 
 	m_graphics.pipeline = m_vulkanResources->device.createGraphicsPipeline(nullptr, pipelineInfo);
+
+	inputAssembly = vk::PipelineInputAssemblyStateCreateInfo({}, vk::PrimitiveTopology::eLineStrip, VK_FALSE);
+
+	vertexAttributeDescriptions = { vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32Sfloat, 0) };
+	bindingDesc = { vk::VertexInputBindingDescription(0, sizeof(glm::vec2)) };
+
+	vertShader = CompileShader("resources/shaders/orbit.vert", shaderc_shader_kind::shaderc_glsl_vertex_shader);
+	fragShader = CompileShader("resources/shaders/orbit.frag", shaderc_shader_kind::shaderc_glsl_fragment_shader);
+
+	shaderStages[0] = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, vertShader, "main");
+	shaderStages[1] = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, fragShader, "main");
+
+	vertexInputInfo = vk::PipelineVertexInputStateCreateInfo({}, 1, bindingDesc.data(), vertexAttributeDescriptions.size(), vertexAttributeDescriptions.data());
+
+	//pipelineInfo.layout = m_graphics.pipelineLayoutOrbit;
+	m_graphics.orbitPipeline = m_vulkanResources->device.createGraphicsPipeline(nullptr, pipelineInfo);
 
 	m_vulkanResources->device.destroyShaderModule(vertShader);
 	m_vulkanResources->device.destroyShaderModule(fragShader);
@@ -530,12 +560,40 @@ void OrreyVk::PrepareCompute()
 	m_compute.cmdBuffer.end();
 }
 
+std::vector<glm::vec2> OrreyVk::CalculateOrbitPoints(glm::vec4 pos, glm::vec4 vel, double G, float timestep, int plotPoints)
+{
+	float xT = pos.x / SCALE;
+	float zT = pos.z / SCALE;
+	float xV = vel.x;
+	float zV = vel.z;
+	std::vector<glm::vec2> plotPositions;
+
+	for (int i = 0; i < plotPoints; i++)
+	{
+		float radius = sqrt((xT * xT) + (zT * zT));
+		float gravAcc = (G * pos.w) / (radius * radius);
+		float angle = atan2(xT, zT);
+
+		float acc = gravAcc / pos.w;
+
+		xV += (sin(angle) * acc * timestep);
+		zV += (cos(angle) * acc * timestep);
+
+		xT -= xV * timestep;
+		zT -= zV * timestep;
+		
+		plotPositions.emplace_back(glm::vec2(xT * SCALE,zT * SCALE));
+	}
+
+	return plotPositions;
+}
+
 void OrreyVk::MainLoop() {
 	while (!glfwWindowShouldClose(m_window)) {
 		auto tStart = std::chrono::high_resolution_clock::now();
 
 		glfwPollEvents();
-		RenderFrame();
+		RenderFrame();		
 
 		double xPos, yPos;
 		glfwGetCursorPos(m_window, &xPos, &yPos);
@@ -561,7 +619,7 @@ void OrreyVk::MainLoop() {
 		m_totalRunTime += m_frameTime;
 		if (m_totalRunTime >= m_seconds)
 		{
-			spdlog::info("\tRuntime = {}", m_seconds);
+			//spdlog::info("\tRuntime = {}", m_seconds);
 			m_seconds += 1;
 		}
 	}
