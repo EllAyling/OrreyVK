@@ -88,12 +88,17 @@ private:
 		glm::vec4 rotationSpeed; //xyz Rotation speed for each axis
 	};
 
+	struct {
+		vko::Buffer m_bufferVertexOrbit;
+		std::vector<int> vertices;
+		std::vector<int> offsets;
+	} m_orbitVertexInfo;
+
 	vko::Buffer m_bufferVertex;
 	vko::Buffer m_bufferIndex;
 	vko::Buffer m_bufferInstance;
 	vko::Image m_textureArrayPlanets;
-	vko::Buffer m_bufferVertexOrbit;
-
+	
 	void CreateCommandBuffers();
 	void CreateDescriptorPool();
 	void CreateDescriptorSetLayout();
@@ -108,7 +113,7 @@ private:
 	void UpdateComputeUniformBuffer();
 	void PrepareCompute();
 
-	std::vector<glm::vec2> CalculateOrbitPoints(glm::vec4 pos, glm::vec4 vel, double G, float timestep, int plotPoints);
+	std::vector<glm::vec2> CalculateOrbitPoints(glm::vec4 pos, glm::vec4 vel, double G, float timestep);
 
 	float RandomRange(float min, float max) { return min + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (max - min))); }
 

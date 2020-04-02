@@ -116,11 +116,29 @@ void OrreyVk::PrepareInstance()
 	objects[8] = { glm::vec4(30.0	* SCALE, 0.0f, 0.0f, 5.149e-5),		glm::vec4(0.0, 0.0, initialVelocity(30.0),	0.0),	glm::vec4(3.88, 3.88, 3.88,			8), glm::vec4(degToRad(-28.32), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(540), 0.0, 0.0) };		//Neptune
 	float mass = 1.201657180090000162e-9 / objectsToSpawn;
 
-	std::vector<glm::vec2> points = CalculateOrbitPoints(objects[3].position, objects[3].velocity, G, 1, 20 * 20);
+	std::vector<glm::vec2> allPoints;
+	//float increment = 360 / 200;
+	int offset = 0;
+	for (int i = 1; i < 9; i++)
+	{
+		//float theta = -180;
+		//std::vector<glm::vec2> points;
+		//while (theta != 180)
+		//{
+		//	points.push_back(glm::vec2(cos(degToRad(theta)) * objects[i].position.x, sin(degToRad(theta)) * objects[i].position.x));
+		//	theta += increment;
+		//}
+		//points.push_back(points[0]);
+		std::vector<glm::vec2> points = CalculateOrbitPoints(objects[i].position, objects[i].velocity, G, 0.5 * (objects[i].position.x / SCALE));
+		allPoints.insert(allPoints.end(), points.begin(), points.end());
+		m_orbitVertexInfo.offsets.push_back(offset);
+		offset += points.size();
+		m_orbitVertexInfo.vertices.push_back(points.size());
+	}
 
-	vko::Buffer vertexStagingBuffer = CreateBuffer(points.size() * sizeof(glm::vec2), vk::BufferUsageFlagBits::eTransferSrc, points.data());
-	m_bufferVertexOrbit = CreateBuffer(m_sphere.GetVerticesSize(), vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, nullptr, vk::MemoryPropertyFlagBits::eDeviceLocal);
-	CopyBuffer(vertexStagingBuffer, m_bufferVertexOrbit, points.size() * sizeof(glm::vec2));
+	vko::Buffer vertexStagingBuffer = CreateBuffer(allPoints.size() * sizeof(glm::vec2), vk::BufferUsageFlagBits::eTransferSrc, allPoints.data());
+	m_orbitVertexInfo.m_bufferVertexOrbit = CreateBuffer(allPoints.size() * sizeof(glm::vec2), vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, nullptr, vk::MemoryPropertyFlagBits::eDeviceLocal);
+	CopyBuffer(vertexStagingBuffer, m_orbitVertexInfo.m_bufferVertexOrbit, allPoints.size() * sizeof(glm::vec2));
 	vertexStagingBuffer.Destroy();
 
 	for (int i = 9; i < objectsToSpawn; i++)
@@ -181,6 +199,7 @@ void OrreyVk::CreateCommandBuffers()
 {
 	uint32_t swapchainLength = m_vulkanResources->swapchain.GetImageCount();
 	m_vulkanResources->commandBuffers = m_vulkanResources->commandPool.AllocateCommandBuffers(swapchainLength);
+	std::vector<VulkanTools::ImageResources> swapchainImages = m_vulkanResources->swapchain.GetImages();
 	for (size_t i = 0; i < swapchainLength; i++)
 	{
 		std::vector<vk::ClearValue> clearValues = {};
@@ -206,7 +225,7 @@ void OrreyVk::CreateCommandBuffers()
 				vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eVertexInput,
 				{}, {}, barrier, {});
 		}
-			   		 	  
+
 		m_vulkanResources->commandBuffers[i].beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 		m_vulkanResources->commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphics.pipeline);
 		m_vulkanResources->commandBuffers[i].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_graphics.pipelineLayout, 0, 1, &m_graphics.descriptorSet, 0, nullptr);
@@ -215,9 +234,12 @@ void OrreyVk::CreateCommandBuffers()
 		m_vulkanResources->commandBuffers[i].bindIndexBuffer(m_bufferIndex.buffer, { 0 }, vk::IndexType::eUint16);
 		m_vulkanResources->commandBuffers[i].drawIndexed(m_sphere.GetIndicies().size(), m_bufferInstance.size / sizeof(CelestialObj), 0, 0, 0);
 
-		m_vulkanResources->commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphics.orbitPipeline);		
-		m_vulkanResources->commandBuffers[i].bindVertexBuffers(0, m_bufferVertexOrbit.buffer, { 0 });
-		m_vulkanResources->commandBuffers[i].draw(20 * 20, 1, 0, 0);
+		m_vulkanResources->commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphics.orbitPipeline);	
+		m_vulkanResources->commandBuffers[i].bindVertexBuffers(0, m_orbitVertexInfo.m_bufferVertexOrbit.buffer, { 0 });
+		for (int j = 0; j < m_orbitVertexInfo.vertices.size(); j++)
+		{
+			m_vulkanResources->commandBuffers[i].draw(m_orbitVertexInfo.vertices[j], 1, m_orbitVertexInfo.offsets[j], 0);
+		}
 
 		m_vulkanResources->commandBuffers[i].endRenderPass();
 
@@ -560,8 +582,9 @@ void OrreyVk::PrepareCompute()
 	m_compute.cmdBuffer.end();
 }
 
-std::vector<glm::vec2> OrreyVk::CalculateOrbitPoints(glm::vec4 pos, glm::vec4 vel, double G, float timestep, int plotPoints)
+std::vector<glm::vec2> OrreyVk::CalculateOrbitPoints(glm::vec4 pos, glm::vec4 vel, double G, float timestep)
 {
+	int plotPoints = ceil(400 / timestep) * pos.x; //This seems to work quite well
 	float xT = pos.x / SCALE;
 	float zT = pos.z / SCALE;
 	float xV = vel.x;
@@ -630,6 +653,7 @@ void OrreyVk::Cleanup() {
 	m_bufferVertex.Destroy();
 	m_bufferIndex.Destroy();
 	m_bufferInstance.Destroy();
+	m_orbitVertexInfo.m_bufferVertexOrbit.Destroy();
 	m_textureArrayPlanets.Destroy();
 
 	m_graphics.uniformBuffer.Destroy();
