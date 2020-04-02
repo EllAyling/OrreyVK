@@ -72,6 +72,9 @@ void OrreyVk::Init() {
 		"resources/neptune.jpg"
 	};
 	m_textureArrayPlanets = Create2DTextureArray(vk::Format::eR8G8B8A8Unorm, paths, vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst);
+
+	//https://opengameart.org/content/starfield-alpha-4k
+	m_textureStarfield = CreateTexture(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, "resources/starfield.png", vk::ImageUsageFlagBits::eTransferSrc);
 	
 	PrepareInstance();
 
@@ -200,6 +203,7 @@ void OrreyVk::CreateCommandBuffers()
 	uint32_t swapchainLength = m_vulkanResources->swapchain.GetImageCount();
 	m_vulkanResources->commandBuffers = m_vulkanResources->commandPool.AllocateCommandBuffers(swapchainLength);
 	std::vector<VulkanTools::ImageResources> swapchainImages = m_vulkanResources->swapchain.GetImages();
+	vk::Extent2D swapchainDimensions = m_vulkanResources->swapchain.GetDimensions();
 	for (size_t i = 0; i < swapchainLength; i++)
 	{
 		std::vector<vk::ClearValue> clearValues = {};
@@ -209,7 +213,7 @@ void OrreyVk::CreateCommandBuffers()
 		vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo(m_vulkanResources->renderpass, m_vulkanResources->frameBuffers[i]);
 		renderPassInfo.clearValueCount = 2;
 		renderPassInfo.pClearValues = clearValues.data();
-		renderPassInfo.renderArea = vk::Rect2D({ 0, 0 }, m_vulkanResources->swapchain.GetDimensions());
+		renderPassInfo.renderArea = vk::Rect2D({ 0, 0 }, swapchainDimensions);
 
 		m_vulkanResources->commandBuffers[i].begin(vk::CommandBufferBeginInfo());
 
@@ -225,8 +229,9 @@ void OrreyVk::CreateCommandBuffers()
 				vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eVertexInput,
 				{}, {}, barrier, {});
 		}
-
+		vk::ImageBlit regions = vk::ImageBlit(vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1), { 0, vk::Offset3D(swapchainDimensions.width, swapchainDimensions.height, 1) }, vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1), { 0, vk::Offset3D(swapchainDimensions.width, swapchainDimensions.height, 1) });
 		m_vulkanResources->commandBuffers[i].beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+		m_vulkanResources->commandBuffers[i].blitImage(m_textureStarfield.image, vk::ImageLayout::eTransferDstOptimal, swapchainImages[i].image, vk::ImageLayout::ePresentSrcKHR, regions, vk::Filter::eNearest);
 		m_vulkanResources->commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphics.pipeline);
 		m_vulkanResources->commandBuffers[i].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_graphics.pipelineLayout, 0, 1, &m_graphics.descriptorSet, 0, nullptr);
 		m_vulkanResources->commandBuffers[i].bindVertexBuffers(0, m_bufferVertex.buffer, { 0 });

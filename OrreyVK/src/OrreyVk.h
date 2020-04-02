@@ -98,6 +98,7 @@ private:
 	vko::Buffer m_bufferIndex;
 	vko::Buffer m_bufferInstance;
 	vko::Image m_textureArrayPlanets;
+	vko::Image m_textureStarfield;
 	
 	void CreateCommandBuffers();
 	void CreateDescriptorPool();
