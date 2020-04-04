@@ -74,8 +74,8 @@ void OrreyVk::Init() {
 	m_textureArrayPlanets = Create2DTextureArray(vk::Format::eR8G8B8A8Unorm, paths, vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst);
 
 	//https://opengameart.org/content/starfield-alpha-4k
-	m_textureStarfield = CreateTexture(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, "resources/starfield.png", vk::ImageUsageFlagBits::eTransferSrc);
-	
+	m_textureStarfield = CreateTexture(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, "resources/starfield.png", vk::ImageUsageFlagBits::eSampled);
+
 	PrepareInstance();
 
 	CreateDescriptorPool();
@@ -229,17 +229,23 @@ void OrreyVk::CreateCommandBuffers()
 				vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eVertexInput,
 				{}, {}, barrier, {});
 		}
-		vk::ImageBlit regions = vk::ImageBlit(vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1), { 0, vk::Offset3D(swapchainDimensions.width, swapchainDimensions.height, 1) }, vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1), { 0, vk::Offset3D(swapchainDimensions.width, swapchainDimensions.height, 1) });
+		//vk::ImageBlit regions = vk::ImageBlit(vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1), { 0, vk::Offset3D(swapchainDimensions.width, swapchainDimensions.height, 1) }, vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1), { 0, vk::Offset3D(swapchainDimensions.width, swapchainDimensions.height, 1) });
 		m_vulkanResources->commandBuffers[i].beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
-		m_vulkanResources->commandBuffers[i].blitImage(m_textureStarfield.image, vk::ImageLayout::eTransferDstOptimal, swapchainImages[i].image, vk::ImageLayout::ePresentSrcKHR, regions, vk::Filter::eNearest);
-		m_vulkanResources->commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphics.pipeline);
-		m_vulkanResources->commandBuffers[i].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_graphics.pipelineLayout, 0, 1, &m_graphics.descriptorSet, 0, nullptr);
+		//m_vulkanResources->commandBuffers[i].blitImage(m_textureStarfield.image, vk::ImageLayout::eTransferDstOptimal, swapchainImages[i].image, vk::ImageLayout::ePresentSrcKHR, regions, vk::Filter::eNearest);
+
+		
 		m_vulkanResources->commandBuffers[i].bindVertexBuffers(0, m_bufferVertex.buffer, { 0 });
-		m_vulkanResources->commandBuffers[i].bindVertexBuffers(1, m_bufferInstance.buffer, { 0 });
 		m_vulkanResources->commandBuffers[i].bindIndexBuffer(m_bufferIndex.buffer, { 0 }, vk::IndexType::eUint16);
+		m_vulkanResources->commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphics.pipelineSkySphere.pipeline);
+		m_vulkanResources->commandBuffers[i].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_graphics.pipelinePlanets.layout, 0, 1, &m_graphics.skySphereDescriptorSet, 0, nullptr);
+		m_vulkanResources->commandBuffers[i].drawIndexed(m_sphere.GetIndicies().size(), 1, 0, 0, 0);
+
+		m_vulkanResources->commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphics.pipelinePlanets.pipeline);
+		m_vulkanResources->commandBuffers[i].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_graphics.pipelinePlanets.layout, 0, 1, &m_graphics.descriptorSet, 0, nullptr);
+		m_vulkanResources->commandBuffers[i].bindVertexBuffers(1, m_bufferInstance.buffer, { 0 });
 		m_vulkanResources->commandBuffers[i].drawIndexed(m_sphere.GetIndicies().size(), m_bufferInstance.size / sizeof(CelestialObj), 0, 0, 0);
 
-		m_vulkanResources->commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphics.orbitPipeline);	
+		m_vulkanResources->commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphics.pipelineOrbits.pipeline);	
 		m_vulkanResources->commandBuffers[i].bindVertexBuffers(0, m_orbitVertexInfo.m_bufferVertexOrbit.buffer, { 0 });
 		for (int j = 0; j < m_orbitVertexInfo.vertices.size(); j++)
 		{
@@ -269,12 +275,12 @@ void OrreyVk::CreateDescriptorPool()
 {
 	std::vector<vk::DescriptorPoolSize> poolSizes =
 	{
-		vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 2),
+		vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 3),
 		vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, 1),
-		vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 1)
+		vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 2)
 	};
 
-	vk::DescriptorPoolCreateInfo poolInfo = vk::DescriptorPoolCreateInfo({}, 4, poolSizes.size(), poolSizes.data());
+	vk::DescriptorPoolCreateInfo poolInfo = vk::DescriptorPoolCreateInfo({}, 6, poolSizes.size(), poolSizes.data());
 	m_vulkanResources->descriptorPool = m_vulkanResources->device.createDescriptorPool(poolInfo);
 }
 
@@ -291,13 +297,19 @@ void OrreyVk::CreateDescriptorSetLayout()
 
 void OrreyVk::CreateDescriptorSet()
 {
-	vk::DescriptorSetAllocateInfo allocInfo = vk::DescriptorSetAllocateInfo(m_vulkanResources->descriptorPool, 1, &m_graphics.descriptorSetLayout);
-	m_graphics.descriptorSet = m_vulkanResources->device.allocateDescriptorSets(allocInfo)[0];
+	vk::DescriptorSetLayout layouts[] = { m_graphics.descriptorSetLayout, m_graphics.descriptorSetLayout };
+	vk::DescriptorSetAllocateInfo allocInfo = vk::DescriptorSetAllocateInfo(m_vulkanResources->descriptorPool, 2, layouts);
+	std::vector<vk::DescriptorSet> sets = m_vulkanResources->device.allocateDescriptorSets(allocInfo);
+	m_graphics.descriptorSet = sets[0];
+	m_graphics.skySphereDescriptorSet = sets[1];
 
 	std::vector<vk::WriteDescriptorSet> writeSets =
 	{
 		vk::WriteDescriptorSet(m_graphics.descriptorSet, 2, 0, 1, vk::DescriptorType::eUniformBuffer, {}, &(m_graphics.uniformBuffer.descriptor)),
-		vk::WriteDescriptorSet(m_graphics.descriptorSet, 3, 0, 1, vk::DescriptorType::eCombinedImageSampler, &(m_textureArrayPlanets.descriptor), {})
+		vk::WriteDescriptorSet(m_graphics.descriptorSet, 3, 0, 1, vk::DescriptorType::eCombinedImageSampler, &(m_textureArrayPlanets.descriptor), {}),
+
+		vk::WriteDescriptorSet(m_graphics.skySphereDescriptorSet, 2, 0, 1, vk::DescriptorType::eUniformBuffer, {}, &(m_graphics.uniformBuffer.descriptor)),
+		vk::WriteDescriptorSet(m_graphics.skySphereDescriptorSet, 3, 0, 1, vk::DescriptorType::eCombinedImageSampler, &(m_textureStarfield.descriptor), {})
 	};
 
 	m_vulkanResources->device.updateDescriptorSets(writeSets.size(), writeSets.data(), 0, nullptr);
@@ -306,15 +318,13 @@ void OrreyVk::CreateDescriptorSet()
 void OrreyVk::CreateGraphicsPipelineLayout()
 {
 	vk::PipelineLayoutCreateInfo pipelineLayoutInfo = vk::PipelineLayoutCreateInfo({}, 1, &m_graphics.descriptorSetLayout);
-	m_graphics.pipelineLayout = m_vulkanResources->device.createPipelineLayout(pipelineLayoutInfo);
-	//pipelineLayoutInfo = vk::PipelineLayoutCreateInfo();
-	//m_graphics.pipelineLayoutOrbit = m_vulkanResources->device.createPipelineLayout(pipelineLayoutInfo);
+	m_graphics.pipelinePlanets.layout = m_vulkanResources->device.createPipelineLayout(pipelineLayoutInfo);
 }
 
 void OrreyVk::CreateGraphicsPipeline()
 {
-	vk::ShaderModule vertShader = CompileShader("resources/shaders/shader.vert", shaderc_shader_kind::shaderc_glsl_vertex_shader);
-	vk::ShaderModule fragShader = CompileShader("resources/shaders/shader.frag", shaderc_shader_kind::shaderc_glsl_fragment_shader);
+	vk::ShaderModule vertShader = CompileShader("resources/shaders/planets.vert", shaderc_shader_kind::shaderc_glsl_vertex_shader);
+	vk::ShaderModule fragShader = CompileShader("resources/shaders/planets.frag", shaderc_shader_kind::shaderc_glsl_fragment_shader);
 
 	vk::PipelineShaderStageCreateInfo vertShaderStage = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, vertShader, "main");
 	vk::PipelineShaderStageCreateInfo fragShaderStage = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, fragShader, "main");
@@ -350,8 +360,6 @@ void OrreyVk::CreateGraphicsPipeline()
 	colourBlendInfo.pAttachments = &colourBlendAttachState;
 	colourBlendInfo.attachmentCount = 1;
 
-	//vk::PipelineDynamicStateCreateInfo dynamicState = vk::PipelineDynamicStateCreateInfo();
-
 	vk::GraphicsPipelineCreateInfo pipelineInfo = vk::GraphicsPipelineCreateInfo();
 	pipelineInfo.stageCount = 2;
 	pipelineInfo.pStages = shaderStages;
@@ -365,28 +373,36 @@ void OrreyVk::CreateGraphicsPipeline()
 	pipelineInfo.pColorBlendState = &colourBlendInfo;
 	pipelineInfo.pDynamicState = nullptr;
 
-	pipelineInfo.layout = m_graphics.pipelineLayout;
+	pipelineInfo.layout = m_graphics.pipelinePlanets.layout;
 	pipelineInfo.renderPass = m_vulkanResources->renderpass;
 	pipelineInfo.subpass = 0;
 
-	m_graphics.pipeline = m_vulkanResources->device.createGraphicsPipeline(nullptr, pipelineInfo);
+	m_graphics.pipelinePlanets.pipeline = m_vulkanResources->device.createGraphicsPipeline(nullptr, pipelineInfo);
 
-	inputAssembly = vk::PipelineInputAssemblyStateCreateInfo({}, vk::PrimitiveTopology::eLineStrip, VK_FALSE);
-
-	vertexAttributeDescriptions = { vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32Sfloat, 0) };
+	//Orbit pipeline - Uses same layout as planets(ubo, texture array)- we just don't access the array in the fragment shader
+	inputAssembly.topology = vk::PrimitiveTopology::eLineStrip;
+	vertexAttributeDescriptions = { vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32Sfloat, 0) }; //Change vertex input
 	bindingDesc = { vk::VertexInputBindingDescription(0, sizeof(glm::vec2)) };
-
-	vertShader = CompileShader("resources/shaders/orbit.vert", shaderc_shader_kind::shaderc_glsl_vertex_shader);
+	vertexInputInfo = vk::PipelineVertexInputStateCreateInfo({}, 1, bindingDesc.data(), vertexAttributeDescriptions.size(), vertexAttributeDescriptions.data());
+	vertShader = CompileShader("resources/shaders/orbit.vert", shaderc_shader_kind::shaderc_glsl_vertex_shader); //Change shaders
 	fragShader = CompileShader("resources/shaders/orbit.frag", shaderc_shader_kind::shaderc_glsl_fragment_shader);
-
 	shaderStages[0] = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, vertShader, "main");
 	shaderStages[1] = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, fragShader, "main");
+	m_graphics.pipelineOrbits.pipeline = m_vulkanResources->device.createGraphicsPipeline(nullptr, pipelineInfo);
 
+	//Skysphere Pipeline - Needs a new layout for push constant.
+	inputAssembly.topology = vk::PrimitiveTopology::eTriangleList;
+	vertexAttributeDescriptions = m_sphere.GetVertexAttributeDescription();
+	vertShader = CompileShader("resources/shaders/skysphere.vert", shaderc_shader_kind::shaderc_glsl_vertex_shader);
+	fragShader = CompileShader("resources/shaders/skysphere.frag", shaderc_shader_kind::shaderc_glsl_fragment_shader);
+	shaderStages[0] = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, vertShader, "main");
+	shaderStages[1] = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, fragShader, "main");
+	rastierizer.frontFace = vk::FrontFace::eCounterClockwise; //So we can see the texture from inside the sphere
+	bindingDesc = { m_sphere.GetVertexBindingDescription() };
 	vertexInputInfo = vk::PipelineVertexInputStateCreateInfo({}, 1, bindingDesc.data(), vertexAttributeDescriptions.size(), vertexAttributeDescriptions.data());
 
-	//pipelineInfo.layout = m_graphics.pipelineLayoutOrbit;
-	m_graphics.orbitPipeline = m_vulkanResources->device.createGraphicsPipeline(nullptr, pipelineInfo);
-
+	m_graphics.pipelineSkySphere.pipeline = m_vulkanResources->device.createGraphicsPipeline(nullptr, pipelineInfo);
+	
 	m_vulkanResources->device.destroyShaderModule(vertShader);
 	m_vulkanResources->device.destroyShaderModule(fragShader);
 }
@@ -499,7 +515,7 @@ void OrreyVk::PrepareCompute()
 
 	vk::ComputePipelineCreateInfo pipelineCreateInfo = vk::ComputePipelineCreateInfo();
 	pipelineCreateInfo.layout = m_compute.pipelineLayout;
-	vk::ShaderModule computeShader = CompileShader("resources/shaders/shader.comp", shaderc_shader_kind::shaderc_glsl_compute_shader);
+	vk::ShaderModule computeShader = CompileShader("resources/shaders/planets.comp", shaderc_shader_kind::shaderc_glsl_compute_shader);
 	vk::PipelineShaderStageCreateInfo computeShaderStage = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eCompute, computeShader, "main");
 	pipelineCreateInfo.stage = computeShaderStage;
 	m_compute.pipeline = m_vulkanResources->device.createComputePipeline(nullptr, pipelineCreateInfo);
@@ -663,8 +679,14 @@ void OrreyVk::Cleanup() {
 
 	m_graphics.uniformBuffer.Destroy();
 	m_vulkanResources->device.destroyDescriptorSetLayout(m_graphics.descriptorSetLayout);
-	m_vulkanResources->device.destroyPipeline(m_graphics.pipeline);
-	m_vulkanResources->device.destroyPipelineLayout(m_graphics.pipelineLayout);
+
+	m_vulkanResources->device.destroyPipeline(m_graphics.pipelinePlanets.pipeline);
+	m_vulkanResources->device.destroyPipeline(m_graphics.pipelineOrbits.pipeline);
+	m_vulkanResources->device.destroyPipeline(m_graphics.pipelineSkySphere.pipeline);
+	m_vulkanResources->device.destroyPipelineLayout(m_graphics.pipelinePlanets.layout);
+	m_vulkanResources->device.destroyPipelineLayout(m_graphics.pipelineOrbits.layout);
+	m_vulkanResources->device.destroyPipelineLayout(m_graphics.pipelineSkySphere.layout);
+
 	m_vulkanResources->device.destroySemaphore(m_graphics.semaphore);
 
 	m_compute.uniformBuffer.Destroy();

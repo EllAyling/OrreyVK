@@ -41,10 +41,18 @@ public:
 private:
 	GLFWwindow * m_window;
 	SolidSphere m_sphere;
+	SolidSphere m_skySphere;
 
 	float m_frameTime = 1.0f;
 	float m_totalRunTime = 0.0f;
 	float m_seconds = 1.0f;
+
+	struct PipelineInfo
+	{
+		vk::PipelineLayout layout;
+		vk::Pipeline pipeline;
+	};
+
 	struct {
 		struct {
 			glm::mat4 projection;
@@ -55,10 +63,10 @@ private:
 		vko::Buffer uniformBuffer;
 		vk::DescriptorSetLayout descriptorSetLayout;
 		vk::DescriptorSet descriptorSet;
-		vk::PipelineLayout pipelineLayout;
-		vk::PipelineLayout pipelineLayoutOrbit;
-		vk::Pipeline pipeline;
-		vk::Pipeline orbitPipeline;
+		vk::DescriptorSet skySphereDescriptorSet;
+		PipelineInfo pipelinePlanets;
+		PipelineInfo pipelineOrbits;
+		PipelineInfo pipelineSkySphere;
 		vk::Semaphore semaphore;
 	} m_graphics;
 
