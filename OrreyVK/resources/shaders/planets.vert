@@ -5,8 +5,9 @@ layout(location = 1) in vec3 vtxColourIn;
 layout(location = 2) in vec3 vtxUVIn;
 
 layout(location = 3) in vec4 instancePosIn;
-layout(location = 4) in vec4 scale;
-layout(location = 5) in vec4 rotation;
+layout(location = 4) in vec4 posOffset;
+layout(location = 5) in vec4 scale;
+layout(location = 6) in vec4 rotation;
 
 layout(location = 1) out vec3 fragColourIn;
 layout(location = 2) out vec3 fragUVIn;
@@ -47,7 +48,7 @@ void main() {
 	mat3 rotMat =  matZ * matY * matX; //Perform X rotation before Y
 	
 	vec4 locPos = vec4(vtxPosIn.xyz * rotMat, 1.0);
-	vec4 pos = vec4((locPos.xyz * scale.x) + instancePosIn.xyz, 1.0);
+	vec4 pos = vec4((locPos.xyz * scale.x) + instancePosIn.xyz + posOffset.xyz, 1.0);
 	
 	gl_Position = ubo.projection * ubo.view * ubo.model * pos;
     

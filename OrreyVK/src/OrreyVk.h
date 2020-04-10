@@ -94,6 +94,7 @@ private:
 		glm::vec4 scale;	//xyz Scale w texIndex
 		glm::vec4 rotation; //xyz Current rotation on each axis
 		glm::vec4 rotationSpeed; //xyz Rotation speed for each axis
+		glm::vec4 posOffset; //If w != 0 then object is a moon and this describes the position of the object it is orbiting
 	};
 
 	struct {

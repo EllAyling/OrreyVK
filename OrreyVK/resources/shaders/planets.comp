@@ -1,5 +1,9 @@
 #version 450
 #define M_PI 3.1415926535897932384626433832795
+precision highp float;
+
+#extension GL_KHR_shader_subgroup_basic: enable
+#extension GL_EXT_nonuniform_qualifier : enable
 
 struct CelestialObj
 {
@@ -8,6 +12,7 @@ struct CelestialObj
   vec4 scale;
   vec4 rotation;
   vec4 rotationSpeed;
+  vec4 posOffset;
 };
 
 // Binding 0 : Position storage buffer
@@ -34,46 +39,65 @@ float UpdateRotation(float currentRotation, float rotationSpeed)
   return newRotation;
 }
 
+void CalculatePosition(uint index)
+{
+  vec3 vPos = celestialObj[index].pos.xyz;
+  vec3 vVel = celestialObj[index].vel.xyz;
+
+  float xT = (vPos.x / ubo.scale);
+  float zT = (vPos.z / ubo.scale);
+
+  float xV = vVel.x;
+  float zV = vVel.z;
+  float G = 0.0002959122083;
+
+  float radius = sqrt(pow(xT, 2) + pow(zT, 2));
+  float gravAcc = (G * celestialObj[index].pos.w) / (radius * radius);
+  float angle = atan(xT, zT);
+
+  float acc = gravAcc / (celestialObj[index].pos.w);
+    
+  xV += (sin(angle) * acc * ubo.deltaT * ubo.speed);
+  zV += (cos(angle) * acc * ubo.deltaT * ubo.speed);
+
+  xT -= xV * ubo.deltaT * ubo.speed;
+  zT -= zV * ubo.deltaT * ubo.speed;
+
+  xT *= ubo.scale;
+  zT *= ubo.scale;
+
+  // Write back
+  celestialObj[index].pos.x = xT;
+  celestialObj[index].pos.z = zT;
+
+  int orbitalIndex = int(celestialObj[index].posOffset.w);
+  celestialObj[index].posOffset.x = celestialObj[nonuniformEXT(orbitalIndex)].pos.x;
+  celestialObj[index].posOffset.z = celestialObj[nonuniformEXT(orbitalIndex)].pos.z;
+
+  celestialObj[index].vel.x = xV;
+  celestialObj[index].vel.z = zV;
+}
+
 void main() 
 {
   // Current SSBO index
   uint index = gl_GlobalInvocationID.x;
 	// Don't try to write beyond particle count
   if (index >= ubo.objectCount) 
-	return;	
+	  return;	
 
-  // Read position and velocity
-  vec3 vPos = celestialObj[index].pos.xyz;
-  vec3 vVel = celestialObj[index].vel.xyz;
-  float xT = vPos.x / ubo.scale;
-  float zT = vPos.z / ubo.scale;
-  float xV = vVel.x;
-  float zV = vVel.z;
-  float G = 0.0002959122083;
-  if(celestialObj[index].pos.w != 0.0)
+  if(celestialObj[index].pos.w != 0.0 && celestialObj[index].posOffset.w == 0.0) //Calcuate planets first
   {
-    float radius = sqrt((xT * xT) + (zT * zT));
-    float gravAcc = (G * celestialObj[index].pos.w) / (radius * radius);
-    float angle = atan(xT, zT);
+    CalculatePosition(index); //Sun has a mass of 1 SM
+  }
 
-    float acc = gravAcc / celestialObj[index].pos.w;
+  barrier();
+  subgroupBarrier();
+
+  if(celestialObj[index].pos.w != 0.0 && celestialObj[index].posOffset.w != 0.0) //Calculate moons
+  {
     
-    xV += (sin(angle) * acc * ubo.deltaT * ubo.speed);
-    zV += (cos(angle) * acc * ubo.deltaT * ubo.speed);
-
-    xT -= xV * ubo.deltaT * ubo.speed;
-    zT -= zV * ubo.deltaT * ubo.speed;
-
-    xT *= ubo.scale;
-    zT *= ubo.scale;
-
-    // Write back
-    celestialObj[index].pos.x = xT;
-    celestialObj[index].pos.z = zT;
-
-    celestialObj[index].vel.x = xV;
-    celestialObj[index].vel.z = zV;
-
+    CalculatePosition(index); //Pass it the mass of the moons orbiting body
   }
   
   //Rotation

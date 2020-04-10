@@ -289,8 +289,14 @@ void Vulkan::CreateDevice(VulkanTools::DeviceExtensions extensionsRequested)
 	vk::PhysicalDeviceFeatures features;
 	m_vulkanResources->physicalDevice.getFeatures(&features);
 
-	features.robustBufferAccess = false;
+	features.robustBufferAccess = false;	
 	deviceInfo.pEnabledFeatures = &features;
+
+	vk::PhysicalDeviceDescriptorIndexingFeatures indexingFeatures = {};
+	vk::PhysicalDeviceFeatures2 features2;
+	features2.setPNext(&indexingFeatures);
+	m_vulkanResources->physicalDevice.getFeatures2(&features2);
+	deviceInfo.setPNext(&indexingFeatures);
 
 	std::vector<vk::ExtensionProperties> deviceExtProps = m_vulkanResources->physicalDevice.enumerateDeviceExtensionProperties();
 	std::vector<const char*> enabledExtensions;
@@ -616,7 +622,8 @@ vk::ShaderModule Vulkan::CompileShader(const std::string& filename, shaderc_shad
 
 	shaderc::Compiler compiler;
 	shaderc::CompileOptions options;
-	shaderc::SpvCompilationResult result = compiler.CompileGlslToSpv(file_s, type, name.c_str());
+	options.SetTargetSpirv(shaderc_spirv_version_1_3);
+	shaderc::SpvCompilationResult result = compiler.CompileGlslToSpv(file_s, type, name.c_str(), options);
 	
 	if (result.GetCompilationStatus() != shaderc_compilation_status_success) {
 		spdlog::error("Failed to compile shader file: {}", result.GetErrorMessage());
