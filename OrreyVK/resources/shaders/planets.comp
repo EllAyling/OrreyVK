@@ -13,6 +13,8 @@ struct CelestialObj
   vec4 rotation;
   vec4 rotationSpeed;
   vec4 posOffset;
+  vec4 orbitalTilt;
+  vec4 colourTint;
 };
 
 // Binding 0 : Position storage buffer

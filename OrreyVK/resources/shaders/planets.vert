@@ -8,6 +8,8 @@ layout(location = 3) in vec4 instancePosIn;
 layout(location = 4) in vec4 posOffset;
 layout(location = 5) in vec4 scale;
 layout(location = 6) in vec4 rotation;
+layout(location = 7) in vec4 orbitalTilt;
+layout(location = 8) in vec4 colourTint;
 
 layout(location = 1) out vec3 fragColourIn;
 layout(location = 2) out vec3 fragUVIn;
@@ -19,8 +21,8 @@ layout (binding = 2) uniform UBO
 	mat4 view;
 } ubo;
 
-void main() {
-
+mat3 GetRotationMatrix(vec3 rotation)
+{
 	mat3 matX;
 	float s = sin(rotation.x);
 	float c = cos(rotation.x);
@@ -45,14 +47,24 @@ void main() {
 	matZ[1] = vec3(0.0, c, s);
 	matZ[2] = vec3(0.0, -s, c);
 
-	mat3 rotMat =  matZ * matY * matX; //Perform X rotation before Y
-	
-	vec4 locPos = vec4(vtxPosIn.xyz * rotMat, 1.0);
-	vec4 pos = vec4((locPos.xyz * scale.x) + instancePosIn.xyz + posOffset.xyz, 1.0);
+	return matZ * matY * matX; //Perform X rotation before Y
+}
+
+void main() {
+
+	mat3 localRotMat =  GetRotationMatrix(rotation.xyz);
+	mat3 orbitalTiltMat = GetRotationMatrix(orbitalTilt.xyz);
+
+	localRotMat *= orbitalTiltMat;
+		
+	vec4 locPos = vec4(vtxPosIn.xyz * localRotMat, 1.0);
+	vec4 pos = vec4((locPos.xyz * scale.xyz + instancePosIn.xyz), 1.0);
+	pos.xyz *= orbitalTiltMat;
+	pos.xyz += posOffset.xyz;
 	
 	gl_Position = ubo.projection * ubo.view * ubo.model * pos;
     
-	fragColourIn = vtxColourIn;
+	fragColourIn = colourTint.xyz;
 	fragUVIn = vtxUVIn;
 	fragUVIn.z = scale.w;
 }

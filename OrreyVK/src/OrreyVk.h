@@ -95,6 +95,8 @@ private:
 		glm::vec4 rotation; //xyz Current rotation on each axis
 		glm::vec4 rotationSpeed; //xyz Rotation speed for each axis
 		glm::vec4 posOffset; //If w != 0 then object is a moon and this describes the position of the object it is orbiting
+		glm::vec4 orbitalTilt; //xyz Angle of tilt for the orbital plane
+		glm::vec4 colourTint = glm::vec4(1.0);
 	};
 
 	struct {

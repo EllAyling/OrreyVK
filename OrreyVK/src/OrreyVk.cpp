@@ -1,7 +1,7 @@
 #include "OrreyVk.h"
 
 #define OBJECTS_PER_GROUP 256
-#define OBJECTS_TO_SPAWN 102400
+#define OBJECTS_TO_SPAWN 202400
 #define SCALE 10
 
 void OrreyVk::Run() {
@@ -107,19 +107,62 @@ void OrreyVk::PrepareInstance()
 	objects.resize(objectsToSpawn);
 	objects[0] = { glm::vec4(0.0f, 0.0f, 0.0f, 0.0f), glm::vec4(0.0, 0.0, 0.0, 0.0), glm::vec4(5, 5, 5, 0), glm::vec4(degToRad(-7.25), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(15.228), 0.0, 0.0) }; //Sun
 	//				Distance in AU						 Mass in Solar Mass,				Velocity in AU					Scale as ratio of Earth			Texture index   Rotation in degrees					Rotation Speed 
-	objects[1] = { glm::vec4(0.39	* SCALE, 0.0f, 0.0f, 1.651502e-7),	glm::vec4(0.0, 0.0,	initialVelocity(0.39),	0.0),	glm::vec4(0.37, 0.37, 0.37,	1), glm::vec4(degToRad(-0.01), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(6.12), 0.0, 0.0), glm::vec4(0.0) };		//Mercury
-	objects[2] = { glm::vec4(0.723	* SCALE, 0.0f, 0.0f, 2.447225e-6),	glm::vec4(0.0, 0.0, initialVelocity(0.723), 0.0),	glm::vec4(0.949, 0.949, 0.949,		2), glm::vec4(degToRad(-117.4), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(-1.476), 0.0, 0.0), glm::vec4(0.0) };		//Venus
-	objects[3] = { glm::vec4(1.0	* SCALE, 0.0f, 0.0f, 3.0027e-6),	glm::vec4(0.0, 0.0, initialVelocity(1.0),	0.0),	glm::vec4(1.0, 1.0, 1.0,			3), glm::vec4(degToRad(-23.5), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(360), 0.0, 0.0), glm::vec4(0.0) };		//Earth
-	objects[4] = { glm::vec4(1.524	* SCALE, 0.0f, 0.0f, 3.212921e-7),	glm::vec4(0.0, 0.0, initialVelocity(1.524), 0.0),	glm::vec4(0.532, 0.532, 0.532,		4), glm::vec4(degToRad(-25.19), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(345.6), 0.0, 0.0), glm::vec4(0.0) };		//Mars
-	objects[5] = { glm::vec4(5.2	* SCALE, 0.0f, 0.0f, 9.543e-4),		glm::vec4(0.0, 0.0, initialVelocity(5.2),	0.0),	glm::vec4(10.97, 10.97, 10.97,		5), glm::vec4(degToRad(-3.13), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(864), 0.0, 0.0), glm::vec4(0.0) };		//Jupiter
-	objects[6] = { glm::vec4(9.5	* SCALE, 0.0f, 0.0f, 2.857e-4),		glm::vec4(0.0, 0.0, initialVelocity(9.5),	0.0),	glm::vec4(9.14, 9.14, 9.14,			6), glm::vec4(degToRad(-26.73), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(785.448), 0.0, 0.0), glm::vec4(0.0) };		//Saturn
-	objects[7] = { glm::vec4(19.2	* SCALE, 0.0f, 0.0f, 4.365e-5),		glm::vec4(0.0, 0.0, initialVelocity(19.2),	0.0),	glm::vec4(3.98, 3.98, 3.98,			7), glm::vec4(degToRad(-97.77), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(-508.248), 0.0, 0.0), glm::vec4(0.0) };		//Uranus
-	objects[8] = { glm::vec4(30.0	* SCALE, 0.0f, 0.0f, 5.149e-5),		glm::vec4(0.0, 0.0, initialVelocity(30.0),	0.0),	glm::vec4(3.86, 3.86, 3.86,			8), glm::vec4(degToRad(-28.32), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(540), 0.0, 0.0), glm::vec4(0.0) };		//Neptune
+	objects[1] = { glm::vec4(0.39	* SCALE, 0.0f, 0.0f, 1.651502e-7),	glm::vec4(0.0, 0.0,	initialVelocity(0.39),	0.0),	glm::vec4(0.37, 0.37, 0.37,			1),	glm::vec4(degToRad(-0.01), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(6.12), 0.0, 0.0),		glm::vec4(0.0) }; //Mercury
+	objects[2] = { glm::vec4(0.723	* SCALE, 0.0f, 0.0f, 2.447225e-6),	glm::vec4(0.0, 0.0, initialVelocity(0.723), 0.0),	glm::vec4(0.949, 0.949, 0.949,		2), glm::vec4(degToRad(-117.4), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(-1.476), 0.0, 0.0),	glm::vec4(0.0) }; //Venus
+	objects[3] = { glm::vec4(1.0	* SCALE, 0.0f, 0.0f, 3.0027e-6),	glm::vec4(0.0, 0.0, initialVelocity(1.0),	0.0),	glm::vec4(1.0, 1.0, 1.0,			3), glm::vec4(degToRad(-23.5), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(360), 0.0, 0.0),		glm::vec4(0.0) }; //Earth
+	objects[4] = { glm::vec4(1.524	* SCALE, 0.0f, 0.0f, 3.212921e-7),	glm::vec4(0.0, 0.0, initialVelocity(1.524), 0.0),	glm::vec4(0.532, 0.532, 0.532,		4), glm::vec4(degToRad(-25.19), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(345.6), 0.0, 0.0),		glm::vec4(0.0) }; //Mars
+	objects[5] = { glm::vec4(5.2	* SCALE, 0.0f, 0.0f, 9.543e-4),		glm::vec4(0.0, 0.0, initialVelocity(5.2),	0.0),	glm::vec4(10.97, 10.97, 10.97,		5), glm::vec4(degToRad(-3.13), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(864), 0.0, 0.0),		glm::vec4(0.0) }; //Jupiter
+	objects[6] = { glm::vec4(9.5	* SCALE, 0.0f, 0.0f, 2.857e-4),		glm::vec4(0.0, 0.0, initialVelocity(9.5),	0.0),	glm::vec4(9.14, 9.14, 9.14,			6), glm::vec4(degToRad(-26.73), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(785.448), 0.0, 0.0),	glm::vec4(0.0) }; //Saturn
+	objects[7] = { glm::vec4(19.2	* SCALE, 0.0f, 0.0f, 4.365e-5),		glm::vec4(0.0, 0.0, initialVelocity(19.2),	0.0),	glm::vec4(3.98, 3.98, 3.98,			7), glm::vec4(degToRad(-97.77), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(-508.248), 0.0, 0.0),  glm::vec4(0.0) }; //Uranus
+	objects[8] = { glm::vec4(30.0	* SCALE, 0.0f, 0.0f, 5.149e-5),		glm::vec4(0.0, 0.0, initialVelocity(30.0),	0.0),	glm::vec4(3.86, 3.86, 3.86,			8), glm::vec4(degToRad(-28.32), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(540), 0.0, 0.0),		glm::vec4(0.0) }; //Neptune
 	
-	objects[9] = { glm::vec4((0.1) * SCALE, 0.0f, 0.0f, 3.69432e-8), glm::vec4(0.0, 0.0, initialVelocity(0.1), 0.0),	glm::vec4(0.27, 0.27, 0.27,	1), glm::vec4(degToRad(-28.32), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(540), 0.0, 0.0), glm::vec4(objects[3].position.x, objects[3].position.y, objects[3].position.z, 3.0) };		//Moon
+	objects[9] = { glm::vec4((0.1) * SCALE, 0.0f, 0.0f, 3.69432e-8), glm::vec4(0.0, 0.0, initialVelocity(0.1), 0.0),	glm::vec4(0.27, 0.27, 0.27,	1), glm::vec4(degToRad(-1.5), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(13.33), 0.0, 0.0), glm::vec4(objects[3].position.x, objects[3].position.y, objects[3].position.z, 3.0) };		//Moon
+	objects[9].orbitalTilt = glm::vec4(degToRad(5.14), 0.0, 0.0, 0.0);
+	objects[10] = { glm::vec4((1) * SCALE, 0.0f, 0.0f,	3.69432e-8), glm::vec4(0.0, 0.0, initialVelocity(1.0), 0.0),	glm::vec4(0.27, 0.27, 0.27,	1), glm::vec4(degToRad(-28.32), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(540), 0.0, 0.0), glm::vec4(objects[6].position.x, objects[6].position.y, objects[6].position.z, 6.0) };		//Titan
 
+	//Saturn ring
+	for (int i = 11; i < 60000; i++)
+	{
+		glm::vec2 ring0{ 0.5 * SCALE, 1 * SCALE };
+		float rho, theta;
+		rho = sqrt((pow(ring0[1], 2.0f) - pow(ring0[0], 2.0f)) * uniformDist(rndGenerator) + pow(ring0[0], 2.0f));
+		theta = 2.0 * M_PI * uniformDist(rndGenerator);
+		objects[i].position = glm::vec4(rho*cos(theta), uniformDist(rndGenerator) * 0.5f - 0.25f, rho*sin(theta), 3.69432e-8);
+		float r = sqrt(pow(objects[i].position.x, 2) + pow(objects[i].position.z, 2));
+		float vel = initialVelocity(r);
+
+		float mag = sqrt(glm::dot(objects[i].position, objects[i].position));
+		glm::vec3 normalisedPos = glm::vec3(objects[i].position.x / mag, objects[i].position.y, objects[i].position.z / mag);
+
+		objects[i].velocity = glm::vec4((-normalisedPos.z * vel * 3.22), 0.0f, (normalisedPos.x * vel * 3.22), 0.0f); //CCW rotation
+		objects[i].scale = glm::vec4(RandomRange(0.01, 0.07), RandomRange(0.01, 0.07), RandomRange(0.01, 0.07), 1);
+		objects[i].rotation = glm::vec4(M_PI * uniformDist(rndGenerator), M_PI * uniformDist(rndGenerator), M_PI * uniformDist(rndGenerator), 0.0f);
+		objects[i].rotationSpeed = glm::vec4(1.0 * uniformDist(rndGenerator), 1.0 * uniformDist(rndGenerator), 1.0 * uniformDist(rndGenerator), 0.0f);
+		objects[i].posOffset = glm::vec4(objects[6].position.x, objects[6].position.y, objects[6].position.z, 6.0);
+		objects[i].orbitalTilt = objects[6].rotation;
+		float colourTint = 0.5 * uniformDist(rndGenerator) + 0.4;
+		objects[i].colourTint = glm::vec4(colourTint, colourTint, colourTint, 1.0);
+	}
 	
-	float mass = 1.201657180090000162e-9 / objectsToSpawn;
+	//Astroid belt
+	for (int i = 60001; i < objectsToSpawn; i++)
+	{
+		glm::vec2 ring0{ 2 * SCALE, 3 * SCALE };
+		float rho, theta;
+		rho = sqrt((pow(ring0[1], 2.0f) - pow(ring0[0], 2.0f)) * uniformDist(rndGenerator) + pow(ring0[0], 2.0f));
+		theta = 2.0 * M_PI * uniformDist(rndGenerator);
+		objects[i].position = glm::vec4(rho*cos(theta), uniformDist(rndGenerator) * 0.5f - 0.25f, rho*sin(theta), 3.69432e-8);
+		float r = sqrt(pow(objects[i].position.x, 2) + pow(objects[i].position.z, 2));
+		float vel = initialVelocity(r);
+
+		float mag = sqrt(glm::dot(objects[i].position, objects[i].position));
+		glm::vec3 normalisedPos = glm::vec3(objects[i].position.x / mag, objects[i].position.y, objects[i].position.z / mag);
+		
+		objects[i].velocity = glm::vec4((normalisedPos.z * vel * 3.22), 0.0f, (-normalisedPos.x * vel * 3.22), 0.0f); //CW rotation
+		objects[i].scale = glm::vec4(0.05, 0.05, 0.05, 1);
+		objects[i].rotation = glm::vec4(M_PI * uniformDist(rndGenerator), M_PI * uniformDist(rndGenerator), M_PI * uniformDist(rndGenerator), 0.0f);
+		objects[i].rotationSpeed = glm::vec4(1.0 * uniformDist(rndGenerator), 1.0 * uniformDist(rndGenerator), 1.0 * uniformDist(rndGenerator), 0.0f);
+	}
 
 	std::vector<glm::vec2> allPoints;
 	int offset = 0;
@@ -136,25 +179,6 @@ void OrreyVk::PrepareInstance()
 	m_orbitVertexInfo.m_bufferVertexOrbit = CreateBuffer(allPoints.size() * sizeof(glm::vec2), vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, nullptr, vk::MemoryPropertyFlagBits::eDeviceLocal);
 	CopyBuffer(vertexStagingBuffer, m_orbitVertexInfo.m_bufferVertexOrbit, allPoints.size() * sizeof(glm::vec2));
 	vertexStagingBuffer.Destroy();
-
-	for (int i = 10; i < objectsToSpawn; i++)
-	{
-		glm::vec2 ring0{ 2 * SCALE, 2.7 * SCALE };
-		float rho, theta;
-		rho = sqrt((pow(ring0[1], 2.0f) - pow(ring0[0], 2.0f)) * uniformDist(rndGenerator) + pow(ring0[0], 2.0f));
-		theta = 2.0 * M_PI * uniformDist(rndGenerator);
-		objects[i].position = glm::vec4(rho*cos(theta), uniformDist(rndGenerator) * 0.5f - 0.25f, rho*sin(theta), 10e-10);
-		float r = sqrt(pow(objects[i].position.x, 2) + pow(objects[i].position.z, 2));
-		float vel = initialVelocity(r);
-
-		float mag = sqrt(glm::dot(objects[i].position, objects[i].position));
-		glm::vec3 normalisedPos = glm::vec3(objects[i].position.x / mag, objects[i].position.y, objects[i].position.z / mag);
-		
-		objects[i].velocity = glm::vec4((normalisedPos.z * vel), 0.0f, (-normalisedPos.x * vel), 0.0f); //CW rotation
-		objects[i].scale = glm::vec4(0.0, 0.0, 0.0, 0.0);
-		objects[i].rotation = glm::vec4(M_PI * uniformDist(rndGenerator), M_PI * uniformDist(rndGenerator), M_PI * uniformDist(rndGenerator), 0.0f);
-		objects[i].rotationSpeed = glm::vec4(1.0 * uniformDist(rndGenerator), 1.0 * uniformDist(rndGenerator), 1.0 * uniformDist(rndGenerator), 0.0f);
-	}
 
 	uint32_t size = objects.size() * sizeof(CelestialObj);
 	vko::Buffer instanceStagingBuffer = CreateBuffer(size, vk::BufferUsageFlagBits::eTransferSrc, objects.data());
@@ -328,6 +352,8 @@ void OrreyVk::CreateGraphicsPipeline()
 	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(4, 1, vk::Format::eR32G32B32A32Sfloat, offsetof(CelestialObj, posOffset)));
 	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(5, 1, vk::Format::eR32G32B32A32Sfloat, offsetof(CelestialObj, scale)));
 	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(6, 1, vk::Format::eR32G32B32A32Sfloat, offsetof(CelestialObj, rotation)));
+	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(7, 1, vk::Format::eR32G32B32A32Sfloat, offsetof(CelestialObj, orbitalTilt)));
+	vertexAttributeDescriptions.push_back(vk::VertexInputAttributeDescription(8, 1, vk::Format::eR32G32B32A32Sfloat, offsetof(CelestialObj, colourTint)));
 
 	std::vector<vk::VertexInputBindingDescription> bindingDesc = { m_sphere.GetVertexBindingDescription() };
 	bindingDesc.push_back(vk::VertexInputBindingDescription(1, sizeof(CelestialObj), vk::VertexInputRate::eInstance));

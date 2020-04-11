@@ -8,5 +8,6 @@ layout(location = 1) in vec3 fragColourIn;
 layout(location = 2) in vec3 fragUVIn;
 
 void main() {
-    outColor = texture(samplerArray, fragUVIn);	
+    outColor = texture(samplerArray, fragUVIn);
+    outColor.xyz *= fragColourIn;
 }
