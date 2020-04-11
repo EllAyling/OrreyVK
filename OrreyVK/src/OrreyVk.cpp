@@ -59,7 +59,7 @@ void OrreyVk::Init() {
 
 	m_graphics.semaphore = m_vulkanResources->device.createSemaphore(vk::SemaphoreCreateInfo());
 
-	//https://www.solarsystemscope.com/textures/
+	//Load textures in, from: https://www.solarsystemscope.com/textures/
 	std::vector<const char*> paths = { 
 		"resources/sun.jpg", 
 		"resources/mercury.jpg",
@@ -69,12 +69,11 @@ void OrreyVk::Init() {
 		"resources/jupiter.jpg",
 		"resources/saturn.jpg",
 		"resources/uranus.jpg",
-		"resources/neptune.jpg"
+		"resources/neptune.jpg",
+		"resources/moon.jpg"
 	};
 	m_textureArrayPlanets = Create2DTextureArray(vk::Format::eR8G8B8A8Unorm, paths, vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst);
-
-	//https://opengameart.org/content/starfield-alpha-4k
-	m_textureStarfield = CreateTexture(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, "resources/starfield.png", vk::ImageUsageFlagBits::eSampled);
+	m_textureStarfield = CreateTexture(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, "resources/starsmilkyway.jpg", vk::ImageUsageFlagBits::eSampled);
 
 	PrepareInstance();
 
@@ -107,21 +106,29 @@ void OrreyVk::PrepareInstance()
 	objects.resize(objectsToSpawn);
 	objects[0] = { glm::vec4(0.0f, 0.0f, 0.0f, 0.0f), glm::vec4(0.0, 0.0, 0.0, 0.0), glm::vec4(5, 5, 5, 0), glm::vec4(degToRad(-7.25), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(15.228), 0.0, 0.0) }; //Sun
 	//				Distance in AU						 Mass in Solar Mass,				Velocity in AU					Scale as ratio of Earth			Texture index   Rotation in degrees					Rotation Speed 
-	objects[1] = { glm::vec4(0.39	* SCALE, 0.0f, 0.0f, 1.651502e-7),	glm::vec4(0.0, 0.0,	initialVelocity(0.39),	0.0),	glm::vec4(0.37, 0.37, 0.37,			1),	glm::vec4(degToRad(-0.01), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(6.12), 0.0, 0.0),		glm::vec4(0.0) }; //Mercury
-	objects[2] = { glm::vec4(0.723	* SCALE, 0.0f, 0.0f, 2.447225e-6),	glm::vec4(0.0, 0.0, initialVelocity(0.723), 0.0),	glm::vec4(0.949, 0.949, 0.949,		2), glm::vec4(degToRad(-117.4), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(-1.476), 0.0, 0.0),	glm::vec4(0.0) }; //Venus
-	objects[3] = { glm::vec4(1.0	* SCALE, 0.0f, 0.0f, 3.0027e-6),	glm::vec4(0.0, 0.0, initialVelocity(1.0),	0.0),	glm::vec4(1.0, 1.0, 1.0,			3), glm::vec4(degToRad(-23.5), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(360), 0.0, 0.0),		glm::vec4(0.0) }; //Earth
-	objects[4] = { glm::vec4(1.524	* SCALE, 0.0f, 0.0f, 3.212921e-7),	glm::vec4(0.0, 0.0, initialVelocity(1.524), 0.0),	glm::vec4(0.532, 0.532, 0.532,		4), glm::vec4(degToRad(-25.19), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(345.6), 0.0, 0.0),		glm::vec4(0.0) }; //Mars
-	objects[5] = { glm::vec4(5.2	* SCALE, 0.0f, 0.0f, 9.543e-4),		glm::vec4(0.0, 0.0, initialVelocity(5.2),	0.0),	glm::vec4(10.97, 10.97, 10.97,		5), glm::vec4(degToRad(-3.13), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(864), 0.0, 0.0),		glm::vec4(0.0) }; //Jupiter
-	objects[6] = { glm::vec4(9.5	* SCALE, 0.0f, 0.0f, 2.857e-4),		glm::vec4(0.0, 0.0, initialVelocity(9.5),	0.0),	glm::vec4(9.14, 9.14, 9.14,			6), glm::vec4(degToRad(-26.73), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(785.448), 0.0, 0.0),	glm::vec4(0.0) }; //Saturn
-	objects[7] = { glm::vec4(19.2	* SCALE, 0.0f, 0.0f, 4.365e-5),		glm::vec4(0.0, 0.0, initialVelocity(19.2),	0.0),	glm::vec4(3.98, 3.98, 3.98,			7), glm::vec4(degToRad(-97.77), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(-508.248), 0.0, 0.0),  glm::vec4(0.0) }; //Uranus
-	objects[8] = { glm::vec4(30.0	* SCALE, 0.0f, 0.0f, 5.149e-5),		glm::vec4(0.0, 0.0, initialVelocity(30.0),	0.0),	glm::vec4(3.86, 3.86, 3.86,			8), glm::vec4(degToRad(-28.32), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(540), 0.0, 0.0),		glm::vec4(0.0) }; //Neptune
+	objects[1] = { glm::vec4(0.39	* SCALE, 0.0f, 0.0f, 1.651502e-7),	glm::vec4(0.0, 0.0,	initialVelocity(0.39),	0.0),	glm::vec4(0.37, 0.37, 0.37,			1),	glm::vec4(degToRad(-0.01), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(6.12), 0.0, 0.0)	   }; //Mercury
+	objects[2] = { glm::vec4(0.723	* SCALE, 0.0f, 0.0f, 2.447225e-6),	glm::vec4(0.0, 0.0, initialVelocity(0.723), 0.0),	glm::vec4(0.949, 0.949, 0.949,		2), glm::vec4(degToRad(-117.4), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(-1.476), 0.0, 0.0)    }; //Venus
+	objects[3] = { glm::vec4(1.0	* SCALE, 0.0f, 0.0f, 3.0027e-6),	glm::vec4(0.0, 0.0, initialVelocity(1.0),	0.0),	glm::vec4(1.0, 1.0, 1.0,			3), glm::vec4(degToRad(-23.5), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(360), 0.0, 0.0)	   }; //Earth
+	objects[4] = { glm::vec4(1.524	* SCALE, 0.0f, 0.0f, 3.212921e-7),	glm::vec4(0.0, 0.0, initialVelocity(1.524), 0.0),	glm::vec4(0.532, 0.532, 0.532,		4), glm::vec4(degToRad(-25.19), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(345.6), 0.0, 0.0)	   }; //Mars
+	objects[5] = { glm::vec4(5.2	* SCALE, 0.0f, 0.0f, 9.543e-4),		glm::vec4(0.0, 0.0, initialVelocity(5.2),	0.0),	glm::vec4(10.97, 10.97, 10.97,		5), glm::vec4(degToRad(-3.13), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(864), 0.0, 0.0)	   }; //Jupiter
+	objects[6] = { glm::vec4(9.5	* SCALE, 0.0f, 0.0f, 2.857e-4),		glm::vec4(0.0, 0.0, initialVelocity(9.5),	0.0),	glm::vec4(9.14, 9.14, 9.14,			6), glm::vec4(degToRad(-26.73), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(785.448), 0.0, 0.0)   }; //Saturn
+	objects[7] = { glm::vec4(19.2	* SCALE, 0.0f, 0.0f, 4.365e-5),		glm::vec4(0.0, 0.0, initialVelocity(19.2),	0.0),	glm::vec4(3.98, 3.98, 3.98,			7), glm::vec4(degToRad(-97.77), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(-508.248), 0.0, 0.0)  }; //Uranus
+	objects[8] = { glm::vec4(30.0	* SCALE, 0.0f, 0.0f, 5.149e-5),		glm::vec4(0.0, 0.0, initialVelocity(30.0),	0.0),	glm::vec4(3.86, 3.86, 3.86,			8), glm::vec4(degToRad(-28.32), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(540), 0.0, 0.0)	   }; //Neptune
 	
-	objects[9] = { glm::vec4((0.1) * SCALE, 0.0f, 0.0f, 3.69432e-8), glm::vec4(0.0, 0.0, initialVelocity(0.1), 0.0),	glm::vec4(0.27, 0.27, 0.27,	1), glm::vec4(degToRad(-1.5), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(13.33), 0.0, 0.0), glm::vec4(objects[3].position.x, objects[3].position.y, objects[3].position.z, 3.0) };		//Moon
+	objects[9] = { glm::vec4((0.18) * SCALE, 0.0f, 0.0f, 3.69432e-8), glm::vec4(0.0, 0.0, initialVelocity(0.18),		0.0),	glm::vec4(0.27, 0.27, 0.27,			9), glm::vec4(degToRad(-1.5), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(13.33), 0.0, 0.0), glm::vec4(objects[3].position.x, objects[3].position.y, objects[3].position.z, 3.0) };		//Moon
 	objects[9].orbitalTilt = glm::vec4(degToRad(5.14), 0.0, 0.0, 0.0);
-	objects[10] = { glm::vec4((1) * SCALE, 0.0f, 0.0f,	3.69432e-8), glm::vec4(0.0, 0.0, initialVelocity(1.0), 0.0),	glm::vec4(0.27, 0.27, 0.27,	1), glm::vec4(degToRad(-28.32), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(540), 0.0, 0.0), glm::vec4(objects[6].position.x, objects[6].position.y, objects[6].position.z, 6.0) };		//Titan
+	objects[10] = { glm::vec4((2.2) * SCALE, 0.0f, 0.0f,	3.69432e-8), glm::vec4(0.0, 0.0, initialVelocity(2.2),		0.0),	glm::vec4(0.4, 0.4, 0.4,			6),glm::vec4(degToRad(0.0), 0.0, 0.0, 0.0),		glm::vec4(0.0f, degToRad(22.5), 0.0, 0.0), glm::vec4(objects[6].position.x, objects[6].position.y, objects[6].position.z, 6.0) };		//Titan
+	objects[10].colourTint = glm::vec4(0.9, 0.89, 0.36, 1.0);
+	objects[10].orbitalTilt = glm::vec4(degToRad(-26.73), 0.0, 0.0, 0.0);
 
+	objects[11] = { glm::vec4((1.5) * SCALE, 0.0f, 0.0f,	3.69432e-8), glm::vec4(0.0, 0.0, initialVelocity(1.5),		0.0),	glm::vec4(0.12, 0.12, 0.12,			1),glm::vec4(degToRad(0.0), 0.0, 0.0, 0.0),		glm::vec4(0.0f, degToRad(80.0), 0.0, 0.0), glm::vec4(objects[6].position.x, objects[6].position.y, objects[6].position.z, 6.0) };		//Rhea
+	objects[11].orbitalTilt = glm::vec4(degToRad(-26.73), 0.0, 0.0, 0.0);
+
+	objects[12] = { glm::vec4((1.8) * SCALE, 0.0f, 0.0f,	3.69432e-8), glm::vec4(0.0, 0.0, initialVelocity(1.8),		0.0),	glm::vec4(0.41, 0.41, 0.41,			1),glm::vec4(degToRad(0.0), 0.0, 0.0, 0.0),		glm::vec4(0.0f, degToRad(50.52), 0.0, 0.0), glm::vec4(objects[5].position.x, objects[5].position.y, objects[5].position.z, 5.0) };		//Ganymede
+	objects[12].orbitalTilt = glm::vec4(degToRad(-3.13), 0.0, 0.0, 0.0);
+	
 	//Saturn ring
-	for (int i = 11; i < 60000; i++)
+	for (int i = 13; i < 60000; i++)
 	{
 		glm::vec2 ring0{ 0.5 * SCALE, 1 * SCALE };
 		float rho, theta;
@@ -159,11 +166,22 @@ void OrreyVk::PrepareInstance()
 		glm::vec3 normalisedPos = glm::vec3(objects[i].position.x / mag, objects[i].position.y, objects[i].position.z / mag);
 		
 		objects[i].velocity = glm::vec4((normalisedPos.z * vel * 3.22), 0.0f, (-normalisedPos.x * vel * 3.22), 0.0f); //CW rotation
-		objects[i].scale = glm::vec4(0.05, 0.05, 0.05, 1);
+		objects[i].scale = glm::vec4(RandomRange(0.01, 0.07), RandomRange(0.01, 0.07), RandomRange(0.01, 0.07), 1);
 		objects[i].rotation = glm::vec4(M_PI * uniformDist(rndGenerator), M_PI * uniformDist(rndGenerator), M_PI * uniformDist(rndGenerator), 0.0f);
 		objects[i].rotationSpeed = glm::vec4(1.0 * uniformDist(rndGenerator), 1.0 * uniformDist(rndGenerator), 1.0 * uniformDist(rndGenerator), 0.0f);
+		float colourTint = 0.5 * uniformDist(rndGenerator) + 0.4;
+		objects[i].colourTint = glm::vec4(colourTint, colourTint, colourTint, 1.0);
 	}
 
+	//Upload instance data into its buffer
+	uint32_t size = objects.size() * sizeof(CelestialObj);
+	vko::Buffer instanceStagingBuffer = CreateBuffer(size, vk::BufferUsageFlagBits::eTransferSrc, objects.data());
+	m_bufferInstance = CreateBuffer(size, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, nullptr, vk::MemoryPropertyFlagBits::eDeviceLocal);
+
+	CopyBuffer(instanceStagingBuffer, m_bufferInstance, size);
+	instanceStagingBuffer.Destroy();
+
+	//Roughly calculate the orbits for drawing
 	std::vector<glm::vec2> allPoints;
 	int offset = 0;
 	for (int i = 1; i < 9; i++)
@@ -175,18 +193,13 @@ void OrreyVk::PrepareInstance()
 		m_orbitVertexInfo.vertices.push_back(points.size());
 	}
 
+	//Copy orbit data into its vertex buffer (drawn as lines)
 	vko::Buffer vertexStagingBuffer = CreateBuffer(allPoints.size() * sizeof(glm::vec2), vk::BufferUsageFlagBits::eTransferSrc, allPoints.data());
 	m_orbitVertexInfo.m_bufferVertexOrbit = CreateBuffer(allPoints.size() * sizeof(glm::vec2), vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, nullptr, vk::MemoryPropertyFlagBits::eDeviceLocal);
 	CopyBuffer(vertexStagingBuffer, m_orbitVertexInfo.m_bufferVertexOrbit, allPoints.size() * sizeof(glm::vec2));
 	vertexStagingBuffer.Destroy();
 
-	uint32_t size = objects.size() * sizeof(CelestialObj);
-	vko::Buffer instanceStagingBuffer = CreateBuffer(size, vk::BufferUsageFlagBits::eTransferSrc, objects.data());
-	m_bufferInstance = CreateBuffer(size, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, nullptr, vk::MemoryPropertyFlagBits::eDeviceLocal);
-
-	CopyBuffer(instanceStagingBuffer, m_bufferInstance, size);
-	instanceStagingBuffer.Destroy();
-
+	//Give compute queue ownership of the instance buffer so it's ready for the render loop
 	if (m_queueIDs.graphics.familyID != m_queueIDs.compute.familyID)
 	{
 		vk::CommandBuffer cmdBuffer = m_vulkanResources->commandPool.AllocateCommandBuffer();
@@ -246,22 +259,23 @@ void OrreyVk::CreateCommandBuffers()
 				vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eVertexInput,
 				{}, {}, barrier, {});
 		}
-		//vk::ImageBlit regions = vk::ImageBlit(vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1), { 0, vk::Offset3D(swapchainDimensions.width, swapchainDimensions.height, 1) }, vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1), { 0, vk::Offset3D(swapchainDimensions.width, swapchainDimensions.height, 1) });
-		m_vulkanResources->commandBuffers[i].beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
-		//m_vulkanResources->commandBuffers[i].blitImage(m_textureStarfield.image, vk::ImageLayout::eTransferDstOptimal, swapchainImages[i].image, vk::ImageLayout::ePresentSrcKHR, regions, vk::Filter::eNearest);
 
+		m_vulkanResources->commandBuffers[i].beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 		
+		//Draw sky sphere
 		m_vulkanResources->commandBuffers[i].bindVertexBuffers(0, m_bufferVertex.buffer, { 0 });
 		m_vulkanResources->commandBuffers[i].bindIndexBuffer(m_bufferIndex.buffer, { 0 }, vk::IndexType::eUint16);
 		m_vulkanResources->commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphics.pipelineSkySphere.pipeline);
 		m_vulkanResources->commandBuffers[i].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_graphics.pipelinePlanets.layout, 0, 1, &m_graphics.skySphereDescriptorSet, 0, nullptr);
 		m_vulkanResources->commandBuffers[i].drawIndexed(m_sphere.GetIndicies().size(), 1, 0, 0, 0);
 
+		//Draw instanced objects
 		m_vulkanResources->commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphics.pipelinePlanets.pipeline);
 		m_vulkanResources->commandBuffers[i].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_graphics.pipelinePlanets.layout, 0, 1, &m_graphics.descriptorSet, 0, nullptr);
 		m_vulkanResources->commandBuffers[i].bindVertexBuffers(1, m_bufferInstance.buffer, { 0 });
 		m_vulkanResources->commandBuffers[i].drawIndexed(m_sphere.GetIndicies().size(), m_bufferInstance.size / sizeof(CelestialObj), 0, 0, 0);
 
+		//Draw orbits
 		m_vulkanResources->commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphics.pipelineOrbits.pipeline);	
 		m_vulkanResources->commandBuffers[i].bindVertexBuffers(0, m_orbitVertexInfo.m_bufferVertexOrbit.buffer, { 0 });
 		for (int j = 0; j < m_orbitVertexInfo.vertices.size(); j++)
@@ -410,7 +424,7 @@ void OrreyVk::CreateGraphicsPipeline()
 	shaderStages[1] = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, fragShader, "main");
 	m_graphics.pipelineOrbits.pipeline = m_vulkanResources->device.createGraphicsPipeline(nullptr, pipelineInfo);
 
-	//Skysphere Pipeline - Needs a new layout for push constant.
+	//Skysphere Pipeline
 	inputAssembly.topology = vk::PrimitiveTopology::eTriangleList;
 	vertexAttributeDescriptions = m_sphere.GetVertexAttributeDescription();
 	vertShader = CompileShader("resources/shaders/skysphere.vert", shaderc_shader_kind::shaderc_glsl_vertex_shader);
@@ -499,6 +513,8 @@ void OrreyVk::UpdateComputeUniformBuffer()
 	m_compute.ubo.deltaT = m_frameTime;
 	if (m_speed < 0)
 		m_speed = 0;
+	if (m_speed > 300)
+		m_speed = 300;
 	m_compute.ubo.speed = m_speed;
 	memcpy(m_compute.uniformBuffer.mapped, &m_compute.ubo, sizeof(m_compute.ubo));
 }
