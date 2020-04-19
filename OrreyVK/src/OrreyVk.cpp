@@ -1,7 +1,8 @@
 #include "OrreyVk.h"
 
-#define OBJECTS_PER_GROUP 256
-#define OBJECTS_TO_SPAWN 302400
+#define OBJECTS_PER_GROUP 512
+#define SATURN_RING_OBJECT_COUNT 6000
+#define ASTROID_BELT_MAX_OBJECT_COUNT 500000
 #define SCALE 30
 
 void OrreyVk::Run() {
@@ -74,6 +75,11 @@ void OrreyVk::Init() {
 	};
 	m_textureArrayPlanets = Create2DTextureArray(vk::Format::eR8G8B8A8Unorm, paths, vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst);
 	m_textureStarfield = CreateTexture(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, "resources/starsmilkyway8k.jpg", vk::ImageUsageFlagBits::eSampled);
+	
+	//Create query pool to time compute, and rendering times
+	vk::QueryPoolCreateInfo queryPoolInfo = vk::QueryPoolCreateInfo({}, vk::QueryType::eTimestamp, 2, {});
+	m_queryPool = m_vulkanResources->device.createQueryPool(queryPoolInfo);
+	m_queryResults.resize(2);
 
 	PrepareInstance();
 
@@ -94,8 +100,8 @@ void OrreyVk::PrepareInstance()
 	std::default_random_engine rndGenerator((unsigned)time(nullptr));
 	std::uniform_real_distribution<float> uniformDist(0.0, 1.0);
 
-	int objectsToSpawn = OBJECTS_TO_SPAWN;
-	while (objectsToSpawn % OBJECTS_PER_GROUP != 0)
+	int objectsToSpawn = 13 + SATURN_RING_OBJECT_COUNT + ASTROID_BELT_MAX_OBJECT_COUNT;
+	while (objectsToSpawn % OBJECTS_PER_GROUP != 0) //Reduce astroid count until it divides nicely with objects per group
 		objectsToSpawn--;
 
 	//Converted G constant for AU/SM, T: 1s ~= 1 earth sidereal day
@@ -115,8 +121,10 @@ void OrreyVk::PrepareInstance()
 	objects[7] = { glm::vec4(19.2	* SCALE, 0.0f, 0.0f, 4.365e-5),		glm::vec4(0.0, 0.0, initialVelocity(19.2),	0.0),	glm::vec4(3.98, 3.98, 3.98,			7), glm::vec4(degToRad(-97.77), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(-508.248), 0.0, 0.0) }; //Uranus
 	objects[8] = { glm::vec4(30.0	* SCALE, 0.0f, 0.0f, 5.149e-5),		glm::vec4(0.0, 0.0, initialVelocity(30.0),	0.0),	glm::vec4(3.86, 3.86, 3.86,			8), glm::vec4(degToRad(-28.32), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(540), 0.0, 0.0) }; //Neptune
 
+	//Moons
 	objects[9] = { glm::vec4((0.15) * SCALE, 0.0f, 0.0f, 3.69432e-8), glm::vec4(0.0, 0.0, initialVelocity(0.15),		0.0),	glm::vec4(0.27, 0.27, 0.27,			9), glm::vec4(degToRad(-1.5), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(13.33), 0.0, 0.0), glm::vec4(objects[3].position.x, objects[3].position.y, objects[3].position.z, 3.0) };		//Moon
 	objects[9].orbitalTilt = glm::vec4(degToRad(5.14), 0.0, 0.0, 0.0);
+	
 	objects[10] = { glm::vec4((2.2) * SCALE, 0.0f, 0.0f,	3.69432e-8), glm::vec4(0.0, 0.0, initialVelocity(2.2),		0.0),	glm::vec4(0.4, 0.4, 0.4,			6),glm::vec4(degToRad(0.0), 0.0, 0.0, 0.0),		glm::vec4(0.0f, degToRad(22.5), 0.0, 0.0), glm::vec4(objects[6].position.x, objects[6].position.y, objects[6].position.z, 6.0) };		//Titan
 	objects[10].colourTint = glm::vec4(0.9, 0.89, 0.36, 1.0);
 	objects[10].orbitalTilt = glm::vec4(degToRad(-26.73), 0.0, 0.0, 0.0);
@@ -128,7 +136,7 @@ void OrreyVk::PrepareInstance()
 	objects[12].orbitalTilt = glm::vec4(degToRad(-3.13), 0.0, 0.0, 0.0);
 
 	//Saturn ring
-	for (int i = 13; i < 60000; i++)
+	for (int i = 13; i < SATURN_RING_OBJECT_COUNT + 13; i++)
 	{
 		glm::vec2 ring0{ 0.3 * SCALE, 0.8 * SCALE };
 		float rho, theta;
@@ -152,14 +160,13 @@ void OrreyVk::PrepareInstance()
 	}
 	
 	//Astroid belt
-	for (int i = 60001; i < objectsToSpawn; i++)
+	for (int i = SATURN_RING_OBJECT_COUNT + 13; i < objectsToSpawn; i++)
 	{
 		glm::vec2 ring0{ 2 * SCALE, 3 * SCALE };
 		float rho, theta;
 		rho = sqrt((pow(ring0[1], 2.0f) - pow(ring0[0], 2.0f)) * uniformDist(rndGenerator) + pow(ring0[0], 2.0f));
 		theta = 2.0 * M_PI * uniformDist(rndGenerator);
 		objects[i].position = glm::vec4(rho*cos(theta), uniformDist(rndGenerator) * 0.5f - 0.25f, rho*sin(theta), 3.69432e-32);
-		//objects[i].position = glm::vec4(0.0005 * i, 0.0, 0.0, 3.69432e-16);
 		float r = sqrt(pow(objects[i].position.x, 2) + pow(objects[i].position.z, 2));
 		float vel = initialVelocity(r / SCALE);
 	
@@ -274,7 +281,10 @@ void OrreyVk::CreateCommandBuffers()
 		m_vulkanResources->commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphics.pipelinePlanets.pipeline);
 		m_vulkanResources->commandBuffers[i].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_graphics.pipelinePlanets.layout, 0, 1, &m_graphics.descriptorSet, 0, nullptr);
 		m_vulkanResources->commandBuffers[i].bindVertexBuffers(1, m_bufferInstance.buffer, { 0 });
+		m_vulkanResources->commandBuffers[i].resetQueryPool(m_queryPool, 0, 2);
+		m_vulkanResources->commandBuffers[i].writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, m_queryPool, 0);
 		m_vulkanResources->commandBuffers[i].drawIndexed(m_sphere.GetIndicies().size(), m_bufferInstance.size / sizeof(CelestialObj), 0, 0, 0);
+		m_vulkanResources->commandBuffers[i].writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, m_queryPool, 1);
 
 		//Draw orbits
 		m_vulkanResources->commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphics.pipelineOrbits.pipeline);	
@@ -467,6 +477,8 @@ void OrreyVk::RenderFrame()
 
 	m_vulkanResources->queueGraphics.submit(submitInfo, m_vulkanResources->fences[imageIndex.value]);
 
+	//spdlog::info("\Instance draw time = {}ms", GetTimeQueryResult(m_queueIDs.graphics.timestampValidBits));
+
 	vk::SubmitInfo computeSubmitInfo = vk::SubmitInfo();
 	computeSubmitInfo.waitSemaphoreCount = 1;
 	computeSubmitInfo.pWaitSemaphores = &m_graphics.semaphore;
@@ -478,6 +490,8 @@ void OrreyVk::RenderFrame()
 	computeSubmitInfo.pCommandBuffers = &m_compute.cmdBuffer;
 
 	m_vulkanResources->queueCompute.submit(computeSubmitInfo, m_compute.fence);
+
+	//spdlog::info("\Compute time = {}ms", GetTimeQueryResult(m_queueIDs.compute.timestampValidBits));
 
 	vk::SwapchainKHR swapchains[] = { m_vulkanResources->swapchain.GetVkObject() };
 	vk::PresentInfoKHR presentInfo = vk::PresentInfoKHR(1, &m_vulkanResources->semaphoreRender[m_frameID], 1, swapchains, &imageIndex.value);
@@ -555,6 +569,12 @@ void OrreyVk::PrepareCompute()
 	pipelineCreateInfo.layout = m_compute.pipelineLayout;
 	vk::ShaderModule computeShader = CompileShader("resources/shaders/planets.comp.spv");
 	vk::PipelineShaderStageCreateInfo computeShaderStage = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eCompute, computeShader, "main");
+
+	uint32_t objectsPerGroup = OBJECTS_PER_GROUP;
+	vk::SpecializationMapEntry specEntry = vk::SpecializationMapEntry(0, 0, sizeof(uint32_t));
+	vk::SpecializationInfo specInfo = vk::SpecializationInfo(1, &specEntry, sizeof(uint32_t), &objectsPerGroup);
+	computeShaderStage.pSpecializationInfo = &specInfo;
+
 	pipelineCreateInfo.stage = computeShaderStage;
 	m_compute.pipeline = m_vulkanResources->device.createComputePipeline(nullptr, pipelineCreateInfo);
 
@@ -623,7 +643,10 @@ void OrreyVk::PrepareCompute()
 
 	m_compute.cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, m_compute.pipeline);
 	m_compute.cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_compute.pipelineLayout, 0, m_compute.descriptorSet, {});
+	m_compute.cmdBuffer.resetQueryPool(m_queryPool, 0, 2);
+	m_compute.cmdBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, m_queryPool, 0);
 	m_compute.cmdBuffer.dispatch(ceil((m_bufferInstance.size / sizeof(CelestialObj)) / OBJECTS_PER_GROUP), 1, 1);
+	m_compute.cmdBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, m_queryPool, 1);
 
 	if (m_queueIDs.graphics.familyID != m_queueIDs.compute.familyID)
 	{
@@ -668,6 +691,24 @@ std::vector<glm::vec2> OrreyVk::CalculateOrbitPoints(glm::vec4 pos, glm::vec4 ve
 	}
 
 	return plotPositions;
+}
+
+double OrreyVk::GetTimeQueryResult(uint32_t timeStampValidBits)
+{
+	std::array<std::uint64_t, 2> timeStamps = { {0} };
+	m_vulkanResources->device.getQueryPoolResults<std::uint64_t>(m_queryPool, 0, 2, timeStamps, sizeof(std::uint64_t), vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait);
+
+	std::transform(
+		timeStamps.begin(), timeStamps.end(), timeStamps.begin(),
+		std::bind(
+			glm::bitfieldExtract<std::uint64_t>,
+			std::placeholders::_1,
+			0,
+			timeStampValidBits
+		)
+	);
+
+	return static_cast<double>((timeStamps[1] - timeStamps[0])) / 1000000.0;
 }
 
 void OrreyVk::MainLoop() {

@@ -110,6 +110,8 @@ private:
 	vko::Buffer m_bufferInstance;
 	vko::Image m_textureArrayPlanets;
 	vko::Image m_textureStarfield;
+	vk::QueryPool m_queryPool;
+	std::vector<uint64_t> m_queryResults;
 	
 	void CreateCommandBuffers();
 	void CreateDescriptorPool();
@@ -128,6 +130,8 @@ private:
 	std::vector<glm::vec2> CalculateOrbitPoints(glm::vec4 pos, glm::vec4 vel, double G, float timestep);
 
 	float RandomRange(float min, float max) { return min + static_cast <float> (rand()) / (static_cast <float> (RAND_MAX / (max - min))); }
+
+	double GetTimeQueryResult(uint32_t timeStampValidBits);
 
 };
 	void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);

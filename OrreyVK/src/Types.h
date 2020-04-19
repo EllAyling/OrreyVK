@@ -80,6 +80,8 @@ namespace VulkanTools {
 	{
 		uint32_t familyID = -1;
 		uint32_t queueID = -1;
+		uint32_t timestampValidBits = -1;
+		vk::Extent3D minImageTransferGranularity = vk::Extent3D(0, 0, 0);
 	};
 
 	struct QueueFamilies

@@ -207,6 +207,8 @@ void Vulkan::CreateDevice(VulkanTools::DeviceExtensions extensionsRequested)
 		{
 			m_queueIDs.graphics.familyID = queueFamilyID;
 			m_queueIDs.graphics.queueID = 0;
+			m_queueIDs.graphics.minImageTransferGranularity = queueProps.minImageTransferGranularity;
+			m_queueIDs.graphics.timestampValidBits = queueProps.timestampValidBits;
 			vk::DeviceQueueCreateInfo createInfo = vk::DeviceQueueCreateInfo({}, queueFamilyID, 1, &priority);
 			deviceQueues.push_back(createInfo);
 			break;
@@ -222,6 +224,8 @@ void Vulkan::CreateDevice(VulkanTools::DeviceExtensions extensionsRequested)
 		{
 			m_queueIDs.compute.familyID = queueFamilyID;
 			m_queueIDs.compute.queueID = 0;
+			m_queueIDs.compute.minImageTransferGranularity = queueProps.minImageTransferGranularity;
+			m_queueIDs.compute.timestampValidBits = queueProps.timestampValidBits;
 			vk::DeviceQueueCreateInfo createInfo = vk::DeviceQueueCreateInfo({}, queueFamilyID, 1, &priority);
 			deviceQueues.push_back(createInfo);
 			break;
@@ -255,6 +259,8 @@ void Vulkan::CreateDevice(VulkanTools::DeviceExtensions extensionsRequested)
 		{
 			m_queueIDs.transfer.familyID = queueFamilyID;
 			m_queueIDs.transfer.queueID = 0;
+			m_queueIDs.transfer.minImageTransferGranularity = queueProps.minImageTransferGranularity;
+			m_queueIDs.transfer.timestampValidBits = queueProps.timestampValidBits;
 			vk::DeviceQueueCreateInfo createInfo = vk::DeviceQueueCreateInfo({}, queueFamilyID, 1, &priority);
 			deviceQueues.push_back(createInfo);
 			break;
