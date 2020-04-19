@@ -2,7 +2,7 @@
 
 #define OBJECTS_PER_GROUP 256
 #define OBJECTS_TO_SPAWN 202400
-#define SCALE 10
+#define SCALE 30
 
 void OrreyVk::Run() {
 	InitWindow();
@@ -104,7 +104,7 @@ void OrreyVk::PrepareInstance()
 	auto degToRad = [](float deg) {return deg * M_PI / 180; };
 
 	objects.resize(objectsToSpawn);
-	objects[0] = { glm::vec4(0.0f, 0.0f, 0.0f, 0.0f), glm::vec4(0.0, 0.0, 0.0, 0.0), glm::vec4(5, 5, 5, 0), glm::vec4(degToRad(-7.25), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(15.228), 0.0, 0.0) }; //Sun
+	objects[0] = { glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), glm::vec4(0.0, 0.0, 0.0, 0.0), glm::vec4(5, 5, 5, 0), glm::vec4(degToRad(-7.25), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(15.228), 0.0, 0.0) }; //Sun
 	//				Distance in AU						 Mass in Solar Mass,				Velocity in AU					Scale as ratio of Earth			Texture index   Rotation in degrees					Rotation Speed 
 	objects[1] = { glm::vec4(0.39	* SCALE, 0.0f, 0.0f, 1.651502e-7),	glm::vec4(0.0, 0.0,	initialVelocity(0.39),	0.0),	glm::vec4(0.37, 0.37, 0.37,			1),	glm::vec4(degToRad(-0.01), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(6.12), 0.0, 0.0)	   }; //Mercury
 	objects[2] = { glm::vec4(0.723	* SCALE, 0.0f, 0.0f, 2.447225e-6),	glm::vec4(0.0, 0.0, initialVelocity(0.723), 0.0),	glm::vec4(0.949, 0.949, 0.949,		2), glm::vec4(degToRad(-117.4), 0.0, 0.0, 0.0),	glm::vec4(0.0f, degToRad(-1.476), 0.0, 0.0)    }; //Venus
@@ -130,18 +130,18 @@ void OrreyVk::PrepareInstance()
 	//Saturn ring
 	for (int i = 13; i < 60000; i++)
 	{
-		glm::vec2 ring0{ 0.5 * SCALE, 1 * SCALE };
+		glm::vec2 ring0{ 0.3 * SCALE, 0.8 * SCALE };
 		float rho, theta;
 		rho = sqrt((pow(ring0[1], 2.0f) - pow(ring0[0], 2.0f)) * uniformDist(rndGenerator) + pow(ring0[0], 2.0f));
 		theta = 2.0 * M_PI * uniformDist(rndGenerator);
-		objects[i].position = glm::vec4(rho*cos(theta), uniformDist(rndGenerator) * 0.5f - 0.25f, rho*sin(theta), 3.69432e-8);
+		objects[i].position = glm::vec4(rho*cos(theta), uniformDist(rndGenerator) * 0.5f - 0.25f, rho*sin(theta), 3.69432e-16);
 		float r = sqrt(pow(objects[i].position.x, 2) + pow(objects[i].position.z, 2));
-		float vel = initialVelocity(r);
-
+		float vel = initialVelocity(r /SCALE); //Velocity calculation needs to be in unscaled AU
+	
 		float mag = sqrt(glm::dot(objects[i].position, objects[i].position));
 		glm::vec3 normalisedPos = glm::vec3(objects[i].position.x / mag, objects[i].position.y, objects[i].position.z / mag);
-
-		objects[i].velocity = glm::vec4((-normalisedPos.z * vel * 3.22), 0.0f, (normalisedPos.x * vel * 3.22), 0.0f); //CCW rotation
+	
+		objects[i].velocity = glm::vec4((-normalisedPos.z * vel), 0.0f, (normalisedPos.x * vel), 0.0f); //CCW rotation
 		objects[i].scale = glm::vec4(RandomRange(0.01, 0.07), RandomRange(0.01, 0.07), RandomRange(0.01, 0.07), 1);
 		objects[i].rotation = glm::vec4(M_PI * uniformDist(rndGenerator), M_PI * uniformDist(rndGenerator), M_PI * uniformDist(rndGenerator), 0.0f);
 		objects[i].rotationSpeed = glm::vec4(1.0 * uniformDist(rndGenerator), 1.0 * uniformDist(rndGenerator), 1.0 * uniformDist(rndGenerator), 0.0f);
@@ -158,14 +158,15 @@ void OrreyVk::PrepareInstance()
 		float rho, theta;
 		rho = sqrt((pow(ring0[1], 2.0f) - pow(ring0[0], 2.0f)) * uniformDist(rndGenerator) + pow(ring0[0], 2.0f));
 		theta = 2.0 * M_PI * uniformDist(rndGenerator);
-		objects[i].position = glm::vec4(rho*cos(theta), uniformDist(rndGenerator) * 0.5f - 0.25f, rho*sin(theta), 3.69432e-8);
+		objects[i].position = glm::vec4(rho*cos(theta), uniformDist(rndGenerator) * 0.5f - 0.25f, rho*sin(theta), 3.69432e-32);
+		//objects[i].position = glm::vec4(0.0005 * i, 0.0, 0.0, 3.69432e-16);
 		float r = sqrt(pow(objects[i].position.x, 2) + pow(objects[i].position.z, 2));
-		float vel = initialVelocity(r);
-
+		float vel = initialVelocity(r / SCALE);
+	
 		float mag = sqrt(glm::dot(objects[i].position, objects[i].position));
 		glm::vec3 normalisedPos = glm::vec3(objects[i].position.x / mag, objects[i].position.y, objects[i].position.z / mag);
 		
-		objects[i].velocity = glm::vec4((normalisedPos.z * vel * 3.22), 0.0f, (-normalisedPos.x * vel * 3.22), 0.0f); //CW rotation
+		objects[i].velocity = glm::vec4((normalisedPos.z * vel), 0.0f, (-normalisedPos.x * vel), 0.0f); //CW rotation
 		objects[i].scale = glm::vec4(RandomRange(0.01, 0.07), RandomRange(0.01, 0.07), RandomRange(0.01, 0.07), 1);
 		objects[i].rotation = glm::vec4(M_PI * uniformDist(rndGenerator), M_PI * uniformDist(rndGenerator), M_PI * uniformDist(rndGenerator), 0.0f);
 		objects[i].rotationSpeed = glm::vec4(1.0 * uniformDist(rndGenerator), 1.0 * uniformDist(rndGenerator), 1.0 * uniformDist(rndGenerator), 0.0f);

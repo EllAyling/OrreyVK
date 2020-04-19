@@ -52,16 +52,15 @@ void CalculatePosition(uint index)
   float xV = vVel.x;
   float zV = vVel.z;
   float G = 0.0002959122083;
+  
+  float radiusSquared = pow(xT, 2) + pow(zT, 2);
+	vec3 forceDir = normalize(vPos);
 
-  float radius = sqrt(pow(xT, 2) + pow(zT, 2));
-  float gravAcc = (G * celestialObj[index].pos.w) / (radius * radius);
-  float angle = atan(xT, zT);
+  vec3 gravAcc = (forceDir * G) / radiusSquared;
 
-  float acc = gravAcc / (celestialObj[index].pos.w);
-    
-  xV += (sin(angle) * acc * ubo.deltaT * ubo.speed);
-  zV += (cos(angle) * acc * ubo.deltaT * ubo.speed);
-
+  xV += (gravAcc.x * ubo.deltaT * ubo.speed);
+  zV += (gravAcc.z * ubo.deltaT * ubo.speed);
+  
   xT -= xV * ubo.deltaT * ubo.speed;
   zT -= zV * ubo.deltaT * ubo.speed;
 
@@ -85,7 +84,7 @@ void main()
   // Current SSBO index
   uint index = gl_GlobalInvocationID.x;
 	// Don't try to write beyond particle count
-  if (index >= ubo.objectCount) 
+  if (index >= ubo.objectCount || index == 0) 
 	  return;	
 
   if(celestialObj[index].pos.w != 0.0 && celestialObj[index].posOffset.w == 0.0) //Calcuate planets first
