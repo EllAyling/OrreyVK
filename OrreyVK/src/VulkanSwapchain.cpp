@@ -11,6 +11,11 @@ namespace vko {
 
 		device.destroyImageView(depthImage.imageView);
 		device.destroyImage(depthImage.image);
+		device.freeMemory(depthImage.memory);
+
+		device.destroyImageView(multiSampleImage.imageView);
+		device.destroyImage(multiSampleImage.image);
+		device.freeMemory(multiSampleImage.memory);
 
 		for (auto& images : swapchainImages)
 		{

@@ -143,12 +143,27 @@ void Vulkan::CreateInstance(VulkanTools::InstanceExtenstions extensionsRequested
 		spdlog::info("\tDriver Version: {}", properties.driverVersion);
 
 		if (properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu)
+		{
 			m_vulkanResources->physicalDevice = physicalDevice;
+			vk::SampleCountFlags maxSamples = properties.limits.framebufferColorSampleCounts & properties.limits.framebufferDepthSampleCounts;
+			auto getSampleCount = [maxSamples] {
+				if (maxSamples & vk::SampleCountFlagBits::e64) { return vk::SampleCountFlagBits::e64; }
+				if (maxSamples & vk::SampleCountFlagBits::e32) { return vk::SampleCountFlagBits::e32; }
+				if (maxSamples & vk::SampleCountFlagBits::e16) { return vk::SampleCountFlagBits::e16; }
+				if (maxSamples & vk::SampleCountFlagBits::e8) { return vk::SampleCountFlagBits::e8; }
+				if (maxSamples & vk::SampleCountFlagBits::e4) { return vk::SampleCountFlagBits::e4; }
+				if (maxSamples & vk::SampleCountFlagBits::e2) { return vk::SampleCountFlagBits::e2; }
+				return vk::SampleCountFlagBits::e1;
+			};
+			m_msaaSamples = getSampleCount();
+			break;
+		}
 	}
 	
-
 	vk::PhysicalDeviceFeatures features;
 	m_vulkanResources->physicalDevice.getFeatures(&features);
+
+
 	
 }
 
@@ -354,12 +369,12 @@ void Vulkan::CreateSwapchain()
 	spdlog::info("\tMaximum Image extent = {},{}", surfaceCapabilities.maxImageExtent.width, surfaceCapabilities.maxImageExtent.height);
 
 	vk::SwapchainCreateInfoKHR swapchainCreateInfo{};
-	vk::ImageUsageFlags swapchainImageUseage = vk::ImageUsageFlagBits::eColorAttachment;
+	vk::ImageUsageFlags swapchainImageUsage = vk::ImageUsageFlagBits::eColorAttachment;
 
 	if (surfaceCapabilities.supportedUsageFlags & vk::ImageUsageFlagBits::eTransferSrc)
-		swapchainImageUseage |= vk::ImageUsageFlagBits::eTransferSrc;
+		swapchainImageUsage |= vk::ImageUsageFlagBits::eTransferSrc;
 	
-	swapchainCreateInfo.imageUsage = swapchainImageUseage;
+	swapchainCreateInfo.imageUsage = swapchainImageUsage;
 	swapchainCreateInfo.imageExtent = surfaceCapabilities.maxImageExtent;
 
 	std::vector<vk::SurfaceFormatKHR> surfaceFormats = m_vulkanResources->physicalDevice.getSurfaceFormatsKHR(m_vulkanResources->surface);
@@ -417,18 +432,24 @@ void Vulkan::CreateSwapchain()
 	vk::DeviceMemory depthImageMemory;
 	vko::Image depthImage = CreateImage(vk::ImageType::e2D, vk::Format::eD32Sfloat,
 		vk::Extent3D(swapchainCreateInfo.imageExtent, 1), vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::ImageAspectFlagBits::eDepth,
-		vk::ImageCreateFlagBits(0), vk::SampleCountFlagBits::e1, vk::MemoryPropertyFlagBits::eDeviceLocal);
+		vk::ImageCreateFlagBits(0), m_msaaSamples, vk::MemoryPropertyFlagBits::eDeviceLocal);
 	m_vulkanResources->swapchain.SetDepthImage(VulkanTools::ImageResources(depthImage.image, depthImage.imageView, depthImage.memory));
+
+	vko::Image multiSampleImage = CreateImage(vk::ImageType::e2D, formatToUse,
+		vk::Extent3D(swapchainCreateInfo.imageExtent, 1), vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransientAttachment, vk::ImageAspectFlagBits::eColor,
+		vk::ImageCreateFlagBits(0), m_msaaSamples, vk::MemoryPropertyFlagBits::eDeviceLocal);
+	m_vulkanResources->swapchain.SetMultiSampleImage(VulkanTools::ImageResources(multiSampleImage.image, multiSampleImage.imageView, multiSampleImage.memory));
 }
 
 void Vulkan::CreateRenderpass()
 {
 	vk::AttachmentDescription colourAttachDesc = vk::AttachmentDescription({}, m_vulkanResources->swapchain.GetSwapchainFormat());
-	colourAttachDesc.finalLayout = vk::ImageLayout::ePresentSrcKHR;
+	colourAttachDesc.finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
 	colourAttachDesc.loadOp = vk::AttachmentLoadOp::eClear;
 	colourAttachDesc.storeOp = vk::AttachmentStoreOp::eStore;
 	colourAttachDesc.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
 	colourAttachDesc.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+	colourAttachDesc.samples = m_msaaSamples;
 
 	vk::AttachmentDescription depthAttachDesc = vk::AttachmentDescription({}, vk::Format::eD32Sfloat);
 	depthAttachDesc.finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
@@ -436,21 +457,32 @@ void Vulkan::CreateRenderpass()
 	depthAttachDesc.storeOp = vk::AttachmentStoreOp::eDontCare;
 	depthAttachDesc.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
 	depthAttachDesc.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+	depthAttachDesc.samples = m_msaaSamples;
+
+	vk::AttachmentDescription colourAttachResolveDesc = vk::AttachmentDescription({}, m_vulkanResources->swapchain.GetSwapchainFormat());
+	colourAttachResolveDesc.finalLayout = vk::ImageLayout::ePresentSrcKHR;
+	colourAttachResolveDesc.loadOp = vk::AttachmentLoadOp::eDontCare;
+	colourAttachResolveDesc.storeOp = vk::AttachmentStoreOp::eStore;
+	colourAttachResolveDesc.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+	colourAttachResolveDesc.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+	colourAttachResolveDesc.samples = vk::SampleCountFlagBits::e1;
 
 	vk::AttachmentReference colourAttachRef = vk::AttachmentReference(0, vk::ImageLayout::eColorAttachmentOptimal);
 	vk::AttachmentReference depthAttachRef = vk::AttachmentReference(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+	vk::AttachmentReference colourAttachResolveRef = vk::AttachmentReference(2, vk::ImageLayout::eColorAttachmentOptimal);
 
 	vk::SubpassDescription subpass = vk::SubpassDescription();
 	subpass.colorAttachmentCount = 1;
 	subpass.pColorAttachments = &colourAttachRef;
 	subpass.pDepthStencilAttachment = &depthAttachRef;
+	subpass.pResolveAttachments = &colourAttachResolveRef;
 
 	vk::SubpassDependency dependency = vk::SubpassDependency();
 	dependency.srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 	dependency.dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 	dependency.dstAccessMask = vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite;
 
-	std::vector<vk::AttachmentDescription> attachments = { colourAttachDesc, depthAttachDesc };
+	std::vector<vk::AttachmentDescription> attachments = { colourAttachDesc, depthAttachDesc, colourAttachResolveDesc };
 	vk::RenderPassCreateInfo createInfo = vk::RenderPassCreateInfo({}, attachments.size(), attachments.data(), 1, &subpass, 1, &dependency);
 
 	m_vulkanResources->renderpass = m_vulkanResources->device.createRenderPass(createInfo);
@@ -467,7 +499,7 @@ void Vulkan::CreateFramebuffers()
 	for (size_t i = 0; i < m_vulkanResources->swapchain.GetImageCount(); i++)
 	{
 		VulkanTools::ImageResources image = m_vulkanResources->swapchain.GetImages()[i];
-		std::vector<vk::ImageView> attachments = { image.imageView, m_vulkanResources->swapchain.GetDepthImage().imageView };
+		std::vector<vk::ImageView> attachments = { m_vulkanResources->swapchain.GetMultiSampleImage().imageView, m_vulkanResources->swapchain.GetDepthImage().imageView, image.imageView  };
 		createInfo.attachmentCount = attachments.size();
 		createInfo.pAttachments = attachments.data();
 

@@ -14,6 +14,7 @@ namespace vko {
 		vk::SwapchainKHR swapchain;
 		std::vector<VulkanTools::ImageResources> swapchainImages;
 		VulkanTools::ImageResources depthImage;
+		VulkanTools::ImageResources multiSampleImage;
 
 		uint32_t numOfImages = 0;
 		vk::Format swapchainFormat = vk::Format::eUndefined;
@@ -61,6 +62,8 @@ namespace vko {
 		vk::Format GetSwapchainFormat() { return swapchainFormat; }
 		void SetDepthImage(VulkanTools::ImageResources depthImage) { this->depthImage = depthImage; }
 		VulkanTools::ImageResources GetDepthImage() { return depthImage; }
+		void SetMultiSampleImage(VulkanTools::ImageResources multiSampleImage) { this->multiSampleImage = multiSampleImage; }
+		VulkanTools::ImageResources GetMultiSampleImage() { return multiSampleImage; }
 		vk::Extent2D GetDimensions() { return dimensions; }
 		vk::SwapchainKHR GetVkObject() { return swapchain; }
 

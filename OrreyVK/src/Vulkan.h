@@ -57,6 +57,7 @@ protected:
 	std::unique_ptr<VulkanResources> m_vulkanResources;
 	VulkanTools::QueueFamilies m_queueIDs;
 	uint32_t m_frameID = 0;
+	vk::SampleCountFlagBits m_msaaSamples;
 
 	uint32_t GetMemoryTypeIndex(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
 
