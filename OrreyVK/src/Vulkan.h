@@ -10,7 +10,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <spdlog/spdlog.h>
-#include <shaderc/shaderc.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_STATIC
@@ -87,7 +86,7 @@ public:
 
 	void CopyBuffer(vko::Buffer srcBuffer, vko::Buffer dstBuffer, vk::DeviceSize size);
 
-	vk::ShaderModule CompileShader(const std::string& fileName, shaderc_shader_kind type);
+	vk::ShaderModule CompileShader(const std::string& fileName);
 
 	vko::Image CreateTexture(vk::ImageType imageType, vk::Format format, const char* filePath, vk::ImageUsageFlags usage);
 	vko::Image Create2DTextureArray(vk::Format format, std::vector<const char*> filePaths, vk::ImageUsageFlags usage);

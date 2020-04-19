@@ -436,7 +436,7 @@ void Vulkan::CreateSwapchain()
 	m_vulkanResources->swapchain.SetDepthImage(VulkanTools::ImageResources(depthImage.image, depthImage.imageView, depthImage.memory));
 
 	vko::Image multiSampleImage = CreateImage(vk::ImageType::e2D, formatToUse,
-		vk::Extent3D(swapchainCreateInfo.imageExtent, 1), vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransientAttachment, vk::ImageAspectFlagBits::eColor,
+		vk::Extent3D(swapchainCreateInfo.imageExtent, 1), vk::ImageUsageFlagBits::eColorAttachment, vk::ImageAspectFlagBits::eColor,
 		vk::ImageCreateFlagBits(0), m_msaaSamples, vk::MemoryPropertyFlagBits::eDeviceLocal);
 	m_vulkanResources->swapchain.SetMultiSampleImage(VulkanTools::ImageResources(multiSampleImage.image, multiSampleImage.imageView, multiSampleImage.memory));
 }
@@ -637,7 +637,7 @@ void Vulkan::CopyBuffer(vko::Buffer srcBuffer, vko::Buffer dstBuffer, vk::Device
 	m_vulkanResources->commandPoolTransfer.FreeCommandBuffers({ cmdBuffer });
 }
 
-vk::ShaderModule Vulkan::CompileShader(const std::string& filename, shaderc_shader_kind type)
+vk::ShaderModule Vulkan::CompileShader(const std::string& filename)
 {
 	std::ifstream file(filename, std::ios::ate | std::ios::binary);
 	if (!file.is_open())
@@ -645,26 +645,12 @@ vk::ShaderModule Vulkan::CompileShader(const std::string& filename, shaderc_shad
 		throw std::runtime_error("Failed to open shader file.");
 	}
 	size_t fileSize = (size_t)file.tellg();
-	std::string file_s(fileSize, '\0');
+	std::vector<char> buffer(fileSize);
 	file.seekg(0, std::ios::beg);
-	file.read(&file_s[0], fileSize);
+	file.read(buffer.data(), fileSize);
 	file.close();
 
-	std::string name = filename.substr(filename.find_last_of("/\\") + 1);
-
-	shaderc::Compiler compiler;
-	shaderc::CompileOptions options;
-	options.SetTargetSpirv(shaderc_spirv_version_1_3);
-	shaderc::SpvCompilationResult result = compiler.CompileGlslToSpv(file_s, type, name.c_str(), options);
-	
-	if (result.GetCompilationStatus() != shaderc_compilation_status_success) {
-		spdlog::error("Failed to compile shader file: {}", result.GetErrorMessage());
-		throw std::runtime_error("Failed to compile shader file.");
-	}
-	
-	std::vector<uint32_t> shaderData;
-	shaderData.assign(result.cbegin(), result.cend());
-	vk::ShaderModuleCreateInfo moduleCreateInfo = vk::ShaderModuleCreateInfo({}, shaderData.size() * sizeof(uint32_t), shaderData.data());
+	vk::ShaderModuleCreateInfo moduleCreateInfo = vk::ShaderModuleCreateInfo({}, buffer.size(), reinterpret_cast<const uint32_t*>(buffer.data()));
 
 	spdlog::info("Compiled Shader: {}", filename);
 	return m_vulkanResources->device.createShaderModule(moduleCreateInfo);

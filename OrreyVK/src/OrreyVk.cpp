@@ -1,7 +1,7 @@
 #include "OrreyVk.h"
 
 #define OBJECTS_PER_GROUP 256
-#define OBJECTS_TO_SPAWN 202400
+#define OBJECTS_TO_SPAWN 302400
 #define SCALE 30
 
 void OrreyVk::Run() {
@@ -17,7 +17,7 @@ void OrreyVk::InitWindow() {
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-	m_window = glfwCreateWindow(1980, 1080, "Vulkan", nullptr, nullptr);
+	m_window = glfwCreateWindow(1980, 1080, "OrreyVk", nullptr, nullptr);
 
 	glfwSetKeyCallback(m_window, key_callback);
 	glfwSetMouseButtonCallback(m_window, mouse_button_callback);
@@ -355,8 +355,8 @@ void OrreyVk::CreateGraphicsPipelineLayout()
 
 void OrreyVk::CreateGraphicsPipeline()
 {
-	vk::ShaderModule vertShader = CompileShader("resources/shaders/planets.vert", shaderc_shader_kind::shaderc_glsl_vertex_shader);
-	vk::ShaderModule fragShader = CompileShader("resources/shaders/planets.frag", shaderc_shader_kind::shaderc_glsl_fragment_shader);
+	vk::ShaderModule vertShader = CompileShader("resources/shaders/planets.vert.spv");
+	vk::ShaderModule fragShader = CompileShader("resources/shaders/planets.frag.spv");
 
 	vk::PipelineShaderStageCreateInfo vertShaderStage = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, vertShader, "main");
 	vk::PipelineShaderStageCreateInfo fragShaderStage = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, fragShader, "main");
@@ -420,8 +420,8 @@ void OrreyVk::CreateGraphicsPipeline()
 	vertexAttributeDescriptions = { vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32Sfloat, 0) }; //Change vertex input
 	bindingDesc = { vk::VertexInputBindingDescription(0, sizeof(glm::vec2)) };
 	vertexInputInfo = vk::PipelineVertexInputStateCreateInfo({}, 1, bindingDesc.data(), vertexAttributeDescriptions.size(), vertexAttributeDescriptions.data());
-	vertShader = CompileShader("resources/shaders/orbit.vert", shaderc_shader_kind::shaderc_glsl_vertex_shader); //Change shaders
-	fragShader = CompileShader("resources/shaders/orbit.frag", shaderc_shader_kind::shaderc_glsl_fragment_shader);
+	vertShader = CompileShader("resources/shaders/orbit.vert.spv"); //Change shaders
+	fragShader = CompileShader("resources/shaders/orbit.frag.spv");
 	shaderStages[0] = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, vertShader, "main");
 	shaderStages[1] = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, fragShader, "main");
 	m_graphics.pipelineOrbits.pipeline = m_vulkanResources->device.createGraphicsPipeline(nullptr, pipelineInfo);
@@ -429,8 +429,8 @@ void OrreyVk::CreateGraphicsPipeline()
 	//Skysphere Pipeline
 	inputAssembly.topology = vk::PrimitiveTopology::eTriangleList;
 	vertexAttributeDescriptions = m_sphere.GetVertexAttributeDescription();
-	vertShader = CompileShader("resources/shaders/skysphere.vert", shaderc_shader_kind::shaderc_glsl_vertex_shader);
-	fragShader = CompileShader("resources/shaders/skysphere.frag", shaderc_shader_kind::shaderc_glsl_fragment_shader);
+	vertShader = CompileShader("resources/shaders/skysphere.vert.spv");
+	fragShader = CompileShader("resources/shaders/skysphere.frag.spv");
 	shaderStages[0] = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eVertex, vertShader, "main");
 	shaderStages[1] = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eFragment, fragShader, "main");
 	rastierizer.frontFace = vk::FrontFace::eCounterClockwise; //So we can see the texture from inside the sphere
@@ -553,7 +553,7 @@ void OrreyVk::PrepareCompute()
 
 	vk::ComputePipelineCreateInfo pipelineCreateInfo = vk::ComputePipelineCreateInfo();
 	pipelineCreateInfo.layout = m_compute.pipelineLayout;
-	vk::ShaderModule computeShader = CompileShader("resources/shaders/planets.comp", shaderc_shader_kind::shaderc_glsl_compute_shader);
+	vk::ShaderModule computeShader = CompileShader("resources/shaders/planets.comp.spv");
 	vk::PipelineShaderStageCreateInfo computeShaderStage = vk::PipelineShaderStageCreateInfo({}, vk::ShaderStageFlagBits::eCompute, computeShader, "main");
 	pipelineCreateInfo.stage = computeShaderStage;
 	m_compute.pipeline = m_vulkanResources->device.createComputePipeline(nullptr, pipelineCreateInfo);
