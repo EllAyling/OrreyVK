@@ -7,3 +7,5 @@ My main aim for this project was to implement real time gravity calculations on 
 This project implements features such as compute shaders, instancing, texture arrays, mipmapping, uniform and storage buffers, multisampling, specialization constants, query pools etc.
 
 Distances are in astronomical units, scaled down. Masses are in solar masses. The size of the sun is not to scale and has been scaled down to make viewing planets easier. Moon distances have also been exaggerated for effect.
+
+Texture images from: https://www.solarsystemscope.com/textures/
