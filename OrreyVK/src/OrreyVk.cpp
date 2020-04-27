@@ -629,22 +629,23 @@ void OrreyVk::CreateComputeCommandBuffer()
 std::vector<glm::vec2> OrreyVk::CalculateOrbitPoints(glm::vec4 pos, glm::vec4 vel, double G, float timestep)
 {
 	int plotPoints = ceil(400 / timestep) * pos.x; //This seems to work quite well
-	float xT = pos.x / SCALE;
-	float zT = pos.z / SCALE;
+	glm::vec3 vPos = glm::vec3(pos.x, pos.y, pos.z);
+	float xT = vPos.x / SCALE;
+	float yT = vPos.y / SCALE;
+	float zT = vPos.z / SCALE;
+
 	float xV = vel.x;
 	float zV = vel.z;
 	std::vector<glm::vec2> plotPositions;
 
 	for (int i = 0; i < plotPoints; i++)
 	{
-		float radius = sqrt((xT * xT) + (zT * zT));
-		float gravAcc = (G * pos.w) / (radius * radius);
-		float angle = atan2(xT, zT);
+		float radiusSquared = (xT * xT) + (zT * zT);
+		glm::vec3 forceDir = glm::normalize(glm::vec3(xT, yT, zT));
+		glm::vec3 gravAcc = glm::vec3(forceDir.x * G, forceDir.y * G, forceDir.z * G) / radiusSquared;
 
-		float acc = gravAcc / pos.w;
-
-		xV += (sin(angle) * acc * timestep);
-		zV += (cos(angle) * acc * timestep);
+		xV += (gravAcc.x * timestep);
+		zV += (gravAcc.z * timestep);
 
 		xT -= xV * timestep;
 		zT -= zV * timestep;

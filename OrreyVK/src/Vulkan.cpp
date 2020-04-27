@@ -13,7 +13,6 @@ VKAPI_ATTR VkBool32 VKAPI_CALL debugUtilsMessengerCallback(VkDebugUtilsMessageSe
 	return VK_FALSE;
 }
 
-
 void Vulkan::InitVulkan(GLFWwindow* window)
 {
 	m_vulkanResources.reset(new VulkanResources);
