@@ -1,5 +1,9 @@
 #include "OrreyVk.h"
 
+#define WIDTH 1920
+#define HEIGHT 1080
+#define FULLSCREEN false
+
 #define OBJECTS_PER_GROUP 512
 #define SATURN_RING_OBJECT_COUNT 6000
 #define ASTROID_BELT_MAX_OBJECT_COUNT 250000
@@ -18,7 +22,15 @@ void OrreyVk::InitWindow() {
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-	m_window = glfwCreateWindow(1980, 1080, "OrreyVk", nullptr, nullptr);
+	int width = WIDTH;
+	int height = HEIGHT;
+#ifdef FULLSCREEN
+	GLFWmonitor *monitor = glfwGetPrimaryMonitor();
+	const GLFWvidmode *mode = glfwGetVideoMode(monitor);
+	width = mode->width;
+	height = mode->height;
+#endif
+	m_window = glfwCreateWindow(width, height, "OrreyVk", glfwGetPrimaryMonitor(), nullptr);
 
 	glfwSetKeyCallback(m_window, key_callback);
 	glfwSetMouseButtonCallback(m_window, mouse_button_callback);
@@ -36,8 +48,10 @@ void OrreyVk::Init() {
 	m_bufferVertex = CreateBuffer(m_sphere.GetVerticesSize(), vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, nullptr, vk::MemoryPropertyFlagBits::eDeviceLocal);
 	m_bufferIndex = CreateBuffer(m_sphere.GetIndiciesSize(), vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst, nullptr, vk::MemoryPropertyFlagBits::eDeviceLocal);
 
+
 	CopyBuffer(vertexStagingBuffer, m_bufferVertex, m_sphere.GetVerticesSize());
 	CopyBuffer(indexStagingBuffer, m_bufferIndex, m_sphere.GetIndiciesSize());
+	spdlog::info("Created Buffers");
 
 	m_graphics.ubo.projection = glm::perspective(glm::radians(60.0f), m_vulkanResources->swapchain.GetDimensions().width / (float)m_vulkanResources->swapchain.GetDimensions().height, 0.1f, std::numeric_limits<float>::max());
 
@@ -76,6 +90,8 @@ void OrreyVk::Init() {
 
 	m_textureArrayPlanets = Create2DTextureArray(vk::Format::eR8G8B8A8Unorm, paths, vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst, true);
 	m_textureStarfield = CreateTexture(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, "resources/starsmilkyway8k.jpg", vk::ImageUsageFlagBits::eSampled, true);
+
+	spdlog::info("Loaded textures");
 	
 	
 	//Create query pool to time compute, and rendering times

@@ -1,6 +1,5 @@
 #include "Vulkan.h"
 
-
 VKAPI_ATTR VkBool32 VKAPI_CALL debugUtilsMessengerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT * pCallbackData, void * pUserData)
 {
 	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
@@ -464,6 +463,7 @@ void Vulkan::CreateSwapchain()
 		vk::Extent3D(swapchainCreateInfo.imageExtent, 1), vk::ImageUsageFlagBits::eColorAttachment, vk::ImageAspectFlagBits::eColor,
 		vk::ImageCreateFlagBits(0), m_msaaSamples, vk::MemoryPropertyFlagBits::eDeviceLocal);
 	m_vulkanResources->swapchain.SetMultiSampleImage(VulkanTools::ImageResources(multiSampleImage.image, multiSampleImage.imageView, multiSampleImage.memory));
+	spdlog::info("Created Swapchain");
 }
 
 void Vulkan::CreateRenderpass()
@@ -512,6 +512,8 @@ void Vulkan::CreateRenderpass()
 
 	m_vulkanResources->renderpass = m_vulkanResources->device.createRenderPass(createInfo);
 
+	spdlog::info("Created RenderPass");
+
 }
 
 void Vulkan::CreateFramebuffers()
@@ -530,6 +532,7 @@ void Vulkan::CreateFramebuffers()
 
 		m_vulkanResources->frameBuffers.push_back(m_vulkanResources->device.createFramebuffer(createInfo));
 	}
+	spdlog::info("Created Framebuffers");
 }
 
 void Vulkan::CreateDebugging()
@@ -553,6 +556,8 @@ void Vulkan::CreateCommandPool()
 		m_vulkanResources->commandPoolTransfer = m_vulkanResources->commandPool;
 	else
 		m_vulkanResources->commandPoolTransfer = vko::VulkanCommandPool(m_vulkanResources->device, m_queueIDs.transfer.familyID, vk::CommandPoolCreateFlagBits::eTransient);
+
+	spdlog::info("Created CommandPool");
 }
 
 void Vulkan::CreateFencesAndSemaphores()

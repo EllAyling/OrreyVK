@@ -8,8 +8,6 @@
 
 #include "OrreyVk.h"
 
-const int WIDTH = 800;
-const int HEIGHT = 600;
 OrreyVk *app;
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
@@ -73,6 +71,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			break;
 		case GLFW_KEY_BACKSPACE:
 			app->m_speed = 1.0f;
+			break;
+		case GLFW_KEY_ESCAPE:
+			glfwSetWindowShouldClose(window, true);
 			break;
 		}
 	}
