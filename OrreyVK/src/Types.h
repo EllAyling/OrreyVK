@@ -73,6 +73,9 @@ namespace VulkanTools {
 #ifdef VK_KHR_swapchain
 			addExtension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 #endif
+#ifdef VK_EXT_descriptor_indexing
+			addExtension(VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
+#endif
 		}
 	};
 

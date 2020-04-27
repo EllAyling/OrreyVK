@@ -79,7 +79,6 @@ private:
 		vk::PipelineLayout pipelineLayout;
 		vk::Pipeline pipeline;
 		vk::Semaphore semaphore;
-		vk::Fence fence;
 		struct {
 			float deltaT;
 			int32_t objectCount;
@@ -126,6 +125,7 @@ private:
 	void UpdateCameraUniformBuffer();
 	void UpdateComputeUniformBuffer();
 	void PrepareCompute();
+	void CreateComputeCommandBuffer();
 
 	std::vector<glm::vec2> CalculateOrbitPoints(glm::vec4 pos, glm::vec4 vel, double G, float timestep);
 

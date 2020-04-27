@@ -2,7 +2,7 @@
 
 #define OBJECTS_PER_GROUP 512
 #define SATURN_RING_OBJECT_COUNT 6000
-#define ASTROID_BELT_MAX_OBJECT_COUNT 500000
+#define ASTROID_BELT_MAX_OBJECT_COUNT 250000
 #define SCALE 30
 
 void OrreyVk::Run() {
@@ -51,7 +51,7 @@ void OrreyVk::Init() {
 
 	m_graphics.ubo.model = glm::mat4(1.0f);
 
-	m_graphics.uniformBuffer = CreateBuffer(sizeof(m_graphics.ubo), vk::BufferUsageFlagBits::eUniformBuffer, &m_graphics.ubo);
+	m_graphics.uniformBuffer = CreateBuffer(sizeof(m_graphics.ubo), vk::BufferUsageFlagBits::eUniformBuffer);
 	m_graphics.uniformBuffer.Map();
 	memcpy(m_graphics.uniformBuffer.mapped, &m_graphics.ubo, sizeof(m_graphics.ubo));
 
@@ -73,8 +73,10 @@ void OrreyVk::Init() {
 		"resources/neptune.jpg",
 		"resources/moon.jpg"
 	};
-	m_textureArrayPlanets = Create2DTextureArray(vk::Format::eR8G8B8A8Unorm, paths, vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst);
-	m_textureStarfield = CreateTexture(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, "resources/starsmilkyway8k.jpg", vk::ImageUsageFlagBits::eSampled);
+
+	m_textureArrayPlanets = Create2DTextureArray(vk::Format::eR8G8B8A8Unorm, paths, vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst, true);
+	m_textureStarfield = CreateTexture(vk::ImageType::e2D, vk::Format::eR8G8B8A8Srgb, "resources/starsmilkyway8k.jpg", vk::ImageUsageFlagBits::eSampled, true);
+	
 	
 	//Create query pool to time compute, and rendering times
 	vk::QueryPoolCreateInfo queryPoolInfo = vk::QueryPoolCreateInfo({}, vk::QueryType::eTimestamp, 2, {});
@@ -186,7 +188,30 @@ void OrreyVk::PrepareInstance()
 	vko::Buffer instanceStagingBuffer = CreateBuffer(size, vk::BufferUsageFlagBits::eTransferSrc, objects.data());
 	m_bufferInstance = CreateBuffer(size, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, nullptr, vk::MemoryPropertyFlagBits::eDeviceLocal);
 
-	CopyBuffer(instanceStagingBuffer, m_bufferInstance, size);
+	vk::CommandBuffer cmdBuffer = m_vulkanResources->commandPool.AllocateCommandBuffer();
+	cmdBuffer.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+	//CopyBuffer(instanceStagingBuffer, m_bufferInstance, size);
+	cmdBuffer.copyBuffer(instanceStagingBuffer.buffer, m_bufferInstance.buffer, vk::BufferCopy(0, 0, size));
+
+	//Give compute queue ownership of the instance buffer so it's ready for the render loop
+	if (m_queueIDs.graphics.familyID != m_queueIDs.compute.familyID)
+	{
+		InsertBufferMemoryBarrier(cmdBuffer, m_bufferInstance,
+			vk::AccessFlagBits::eVertexAttributeRead, {},
+			vk::PipelineStageFlagBits::eVertexInput, vk::PipelineStageFlagBits::eComputeShader,
+			m_queueIDs.graphics.familyID, m_queueIDs.compute.familyID);
+	}
+
+	cmdBuffer.end();
+	vk::SubmitInfo submitInfo = vk::SubmitInfo();
+	vk::Fence fence = m_vulkanResources->device.createFence(vk::FenceCreateInfo());
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &cmdBuffer;
+	m_vulkanResources->queueGraphics.submit(submitInfo, fence);
+	m_vulkanResources->device.waitForFences(fence, true, UINT64_MAX);
+	m_vulkanResources->device.destroyFence(fence);
+	m_vulkanResources->commandPool.FreeCommandBuffers(cmdBuffer);
+
 	instanceStagingBuffer.Destroy();
 
 	//Roughly calculate the orbits for drawing
@@ -204,36 +229,9 @@ void OrreyVk::PrepareInstance()
 	//Copy orbit data into its vertex buffer (drawn as lines)
 	vko::Buffer vertexStagingBuffer = CreateBuffer(allPoints.size() * sizeof(glm::vec2), vk::BufferUsageFlagBits::eTransferSrc, allPoints.data());
 	m_orbitVertexInfo.m_bufferVertexOrbit = CreateBuffer(allPoints.size() * sizeof(glm::vec2), vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, nullptr, vk::MemoryPropertyFlagBits::eDeviceLocal);
+	
 	CopyBuffer(vertexStagingBuffer, m_orbitVertexInfo.m_bufferVertexOrbit, allPoints.size() * sizeof(glm::vec2));
 	vertexStagingBuffer.Destroy();
-
-	//Give compute queue ownership of the instance buffer so it's ready for the render loop
-	if (m_queueIDs.graphics.familyID != m_queueIDs.compute.familyID)
-	{
-		vk::CommandBuffer cmdBuffer = m_vulkanResources->commandPool.AllocateCommandBuffer();
-		cmdBuffer.begin(vk::CommandBufferBeginInfo());
-
-		vk::BufferMemoryBarrier barrier = vk::BufferMemoryBarrier(
-			vk::AccessFlagBits::eVertexAttributeRead, {},
-			m_queueIDs.graphics.familyID, m_queueIDs.compute.familyID,
-			m_bufferInstance.buffer, 0, m_bufferInstance.size
-		);
-
-		cmdBuffer.pipelineBarrier(
-			vk::PipelineStageFlagBits::eVertexInput, vk::PipelineStageFlagBits::eComputeShader,
-			{}, {}, barrier, {});
-
-		cmdBuffer.end();
-
-		vk::SubmitInfo submitInfo = vk::SubmitInfo();
-		vk::Fence fence = m_vulkanResources->device.createFence(vk::FenceCreateInfo());
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &cmdBuffer;
-		m_vulkanResources->queueGraphics.submit(submitInfo, fence);
-		m_vulkanResources->device.waitForFences(fence, true, INT_MAX);
-		m_vulkanResources->device.destroyFence(fence);
-		m_vulkanResources->commandPool.FreeCommandBuffers(cmdBuffer);
-	}
 }
 
 void OrreyVk::CreateCommandBuffers()
@@ -257,17 +255,13 @@ void OrreyVk::CreateCommandBuffers()
 
 		if (m_queueIDs.graphics.familyID != m_queueIDs.compute.familyID)
 		{
-			vk::BufferMemoryBarrier barrier = vk::BufferMemoryBarrier(
+			InsertBufferMemoryBarrier(m_vulkanResources->commandBuffers[i], m_bufferInstance,
 				{}, vk::AccessFlagBits::eVertexAttributeRead,
-				m_queueIDs.compute.familyID, m_queueIDs.graphics.familyID,
-				m_bufferInstance.buffer, 0, m_bufferInstance.size
-			);
-
-			m_vulkanResources->commandBuffers[i].pipelineBarrier(
 				vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eVertexInput,
-				{}, {}, barrier, {});
+				m_queueIDs.compute.familyID, m_queueIDs.graphics.familyID);
 		}
 
+		m_vulkanResources->commandBuffers[i].resetQueryPool(m_queryPool, 0, 2);
 		m_vulkanResources->commandBuffers[i].beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 		
 		//Draw sky sphere
@@ -281,7 +275,6 @@ void OrreyVk::CreateCommandBuffers()
 		m_vulkanResources->commandBuffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, m_graphics.pipelinePlanets.pipeline);
 		m_vulkanResources->commandBuffers[i].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_graphics.pipelinePlanets.layout, 0, 1, &m_graphics.descriptorSet, 0, nullptr);
 		m_vulkanResources->commandBuffers[i].bindVertexBuffers(1, m_bufferInstance.buffer, { 0 });
-		m_vulkanResources->commandBuffers[i].resetQueryPool(m_queryPool, 0, 2);
 		m_vulkanResources->commandBuffers[i].writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, m_queryPool, 0);
 		m_vulkanResources->commandBuffers[i].drawIndexed(m_sphere.GetIndicies().size(), m_bufferInstance.size / sizeof(CelestialObj), 0, 0, 0);
 		m_vulkanResources->commandBuffers[i].writeTimestamp(vk::PipelineStageFlagBits::eBottomOfPipe, m_queryPool, 1);
@@ -298,15 +291,10 @@ void OrreyVk::CreateCommandBuffers()
 
 		if (m_queueIDs.graphics.familyID != m_queueIDs.compute.familyID)
 		{
-			vk::BufferMemoryBarrier barrier = vk::BufferMemoryBarrier(
+			InsertBufferMemoryBarrier(m_vulkanResources->commandBuffers[i], m_bufferInstance,
 				vk::AccessFlagBits::eVertexAttributeRead, {},
-				m_queueIDs.graphics.familyID, m_queueIDs.compute.familyID,
-				m_bufferInstance.buffer, 0, m_bufferInstance.size
-			);
-
-			m_vulkanResources->commandBuffers[i].pipelineBarrier(
 				vk::PipelineStageFlagBits::eVertexInput, vk::PipelineStageFlagBits::eComputeShader,
-				{}, {}, barrier, {});
+				m_queueIDs.graphics.familyID, m_queueIDs.compute.familyID);
 		}
 
 		m_vulkanResources->commandBuffers[i].end();
@@ -455,11 +443,6 @@ void OrreyVk::CreateGraphicsPipeline()
 
 void OrreyVk::RenderFrame()
 {
-	m_vulkanResources->device.waitForFences(m_compute.fence, true, UINT64_MAX);
-	m_vulkanResources->device.resetFences(m_compute.fence);
-	m_vulkanResources->device.waitForFences(m_vulkanResources->fences[m_frameID], true, UINT64_MAX);
-	m_vulkanResources->device.resetFences(m_vulkanResources->fences[m_frameID]);
-
 	vk::ResultValue<uint32_t> imageIndex = m_vulkanResources->device.acquireNextImageKHR(m_vulkanResources->swapchain.GetVkObject(), UINT64_MAX, m_vulkanResources->semaphoreImageAquired[m_frameID], {});
 
 	vk::Semaphore waitSemaphores[] = { m_compute.semaphore, m_vulkanResources->semaphoreImageAquired[m_frameID]  };
@@ -475,7 +458,13 @@ void OrreyVk::RenderFrame()
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &m_vulkanResources->commandBuffers[imageIndex.value];
 
-	m_vulkanResources->queueGraphics.submit(submitInfo, m_vulkanResources->fences[imageIndex.value]);
+	m_vulkanResources->queueGraphics.submit(submitInfo, nullptr);
+
+	vk::SwapchainKHR swapchains[] = { m_vulkanResources->swapchain.GetVkObject() };
+	vk::PresentInfoKHR presentInfo = vk::PresentInfoKHR(1, &m_vulkanResources->semaphoreRender[m_frameID], 1, swapchains, &imageIndex.value);
+
+	vk::Result result = m_vulkanResources->queueGraphics.presentKHR(presentInfo);
+	m_vulkanResources->queueGraphics.waitIdle();
 
 	//spdlog::info("\Instance draw time = {}ms", GetTimeQueryResult(m_queueIDs.graphics.timestampValidBits));
 
@@ -489,14 +478,9 @@ void OrreyVk::RenderFrame()
 	computeSubmitInfo.commandBufferCount = 1;
 	computeSubmitInfo.pCommandBuffers = &m_compute.cmdBuffer;
 
-	m_vulkanResources->queueCompute.submit(computeSubmitInfo, m_compute.fence);
+	m_vulkanResources->queueCompute.submit(computeSubmitInfo, nullptr);
 
 	//spdlog::info("\Compute time = {}ms", GetTimeQueryResult(m_queueIDs.compute.timestampValidBits));
-
-	vk::SwapchainKHR swapchains[] = { m_vulkanResources->swapchain.GetVkObject() };
-	vk::PresentInfoKHR presentInfo = vk::PresentInfoKHR(1, &m_vulkanResources->semaphoreRender[m_frameID], 1, swapchains, &imageIndex.value);
-
-	m_vulkanResources->queueGraphics.presentKHR(presentInfo);
 
 	m_frameID = (m_frameID + 1) % m_vulkanResources->swapchain.GetImageCount();
 }
@@ -581,7 +565,6 @@ void OrreyVk::PrepareCompute()
 	m_compute.commandPool = vko::VulkanCommandPool(m_vulkanResources->device, m_queueIDs.compute.familyID, vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
 	m_compute.cmdBuffer = m_compute.commandPool.AllocateCommandBuffer();
 
-	m_compute.fence = m_vulkanResources->device.createFence(vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled));
 	m_compute.semaphore = m_vulkanResources->device.createSemaphore(vk::SemaphoreCreateInfo());
 	vk::SubmitInfo submitInfo = vk::SubmitInfo();
 	submitInfo.signalSemaphoreCount = 1;
@@ -589,31 +572,22 @@ void OrreyVk::PrepareCompute()
 	m_vulkanResources->queueCompute.submit(submitInfo, nullptr);
 	m_vulkanResources->queueCompute.waitIdle();
 
+	CreateComputeCommandBuffer();
 
 	if (m_queueIDs.graphics.familyID != m_queueIDs.compute.familyID)
 	{
 		vk::CommandBuffer cmdBuffer = m_compute.commandPool.AllocateCommandBuffer();
 		cmdBuffer.begin(vk::CommandBufferBeginInfo());
 
-		vk::BufferMemoryBarrier barrier = vk::BufferMemoryBarrier(
+		InsertBufferMemoryBarrier(cmdBuffer, m_bufferInstance,
 			{}, vk::AccessFlagBits::eShaderWrite,
-			m_queueIDs.graphics.familyID, m_queueIDs.compute.familyID,
-			m_bufferInstance.buffer, 0, m_bufferInstance.size
-		);
-
-		cmdBuffer.pipelineBarrier(
 			vk::PipelineStageFlagBits::eVertexInput, vk::PipelineStageFlagBits::eComputeShader,
-			{}, {}, barrier, {});
+			m_queueIDs.graphics.familyID, m_queueIDs.compute.familyID);
 
-		barrier = vk::BufferMemoryBarrier(
+		InsertBufferMemoryBarrier(cmdBuffer, m_bufferInstance,
 			vk::AccessFlagBits::eShaderWrite, {},
-			m_queueIDs.compute.familyID, m_queueIDs.graphics.familyID,
-			m_bufferInstance.buffer, 0, m_bufferInstance.size
-		);
-
-		cmdBuffer.pipelineBarrier(
 			vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eVertexInput,
-			{}, {}, barrier, {});
+			m_queueIDs.compute.familyID, m_queueIDs.graphics.familyID);
 
 		cmdBuffer.end();
 
@@ -626,21 +600,17 @@ void OrreyVk::PrepareCompute()
 		m_vulkanResources->device.destroyFence(fence);
 		m_compute.commandPool.FreeCommandBuffers(cmdBuffer);
 	}
+}
 
+void OrreyVk::CreateComputeCommandBuffer()
+{
 	m_compute.cmdBuffer.begin(vk::CommandBufferBeginInfo());
-	if (m_queueIDs.graphics.familyID != m_queueIDs.compute.familyID)
-	{
-		vk::BufferMemoryBarrier barrier = vk::BufferMemoryBarrier(
-			{}, vk::AccessFlagBits::eShaderWrite,
-			m_queueIDs.graphics.familyID, m_queueIDs.compute.familyID,
-			m_bufferInstance.buffer, 0, m_bufferInstance.size
-		);
 
-		m_compute.cmdBuffer.pipelineBarrier(
-			vk::PipelineStageFlagBits::eVertexInput, vk::PipelineStageFlagBits::eComputeShader,
-			{}, {}, barrier, {});
-	}
-
+	InsertBufferMemoryBarrier(m_compute.cmdBuffer, m_bufferInstance,
+		{}, vk::AccessFlagBits::eShaderWrite,
+		vk::PipelineStageFlagBits::eVertexInput, vk::PipelineStageFlagBits::eComputeShader,
+		m_queueIDs.graphics.familyID, m_queueIDs.compute.familyID);
+	
 	m_compute.cmdBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, m_compute.pipeline);
 	m_compute.cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, m_compute.pipelineLayout, 0, m_compute.descriptorSet, {});
 	m_compute.cmdBuffer.resetQueryPool(m_queryPool, 0, 2);
@@ -648,18 +618,10 @@ void OrreyVk::PrepareCompute()
 	m_compute.cmdBuffer.dispatch(ceil((m_bufferInstance.size / sizeof(CelestialObj)) / OBJECTS_PER_GROUP), 1, 1);
 	m_compute.cmdBuffer.writeTimestamp(vk::PipelineStageFlagBits::eComputeShader, m_queryPool, 1);
 
-	if (m_queueIDs.graphics.familyID != m_queueIDs.compute.familyID)
-	{
-		vk::BufferMemoryBarrier barrier = vk::BufferMemoryBarrier(
-			vk::AccessFlagBits::eShaderWrite, {},
-			m_queueIDs.compute.familyID, m_queueIDs.graphics.familyID,
-			m_bufferInstance.buffer, 0, m_bufferInstance.size
-		);
-
-		m_compute.cmdBuffer.pipelineBarrier(
-			vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eVertexInput,
-			{}, {}, barrier, {});
-	}
+	InsertBufferMemoryBarrier(m_compute.cmdBuffer, m_bufferInstance,
+		vk::AccessFlagBits::eShaderWrite, {},
+		vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eVertexInput,
+		m_queueIDs.compute.familyID, m_queueIDs.graphics.familyID);
 
 	m_compute.cmdBuffer.end();
 }
@@ -775,7 +737,6 @@ void OrreyVk::Cleanup() {
 	m_vulkanResources->device.destroyPipeline(m_compute.pipeline);
 	m_vulkanResources->device.destroyPipelineLayout(m_compute.pipelineLayout);
 	m_vulkanResources->device.destroySemaphore(m_compute.semaphore);
-	m_vulkanResources->device.destroyFence(m_compute.fence);
 	Vulkan::Cleanup();
 
 	glfwDestroyWindow(m_window);

@@ -31,7 +31,7 @@ namespace vko {
 			descriptor = vk::DescriptorBufferInfo(buffer, offset, size);
 		}
 
-		vk::Result Map(vk::DeviceSize = VK_WHOLE_SIZE, vk::DeviceSize offset = 0)
+		vk::Result Map(vk::DeviceSize size = VK_WHOLE_SIZE, vk::DeviceSize offset = 0)
 		{
 			return device.mapMemory(memory, offset, size, {}, &mapped);
 		}
@@ -47,6 +47,7 @@ namespace vko {
 
 		void Destroy()
 		{
+			UnMap();
 			device.destroyBuffer(buffer);
 			device.freeMemory(memory);
 		}

@@ -1,9 +1,24 @@
 #include "Vulkan.h"
 
+
+VKAPI_ATTR VkBool32 VKAPI_CALL debugUtilsMessengerCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT * pCallbackData, void * pUserData)
+{
+	if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+		spdlog::error("{}", pCallbackData->pMessage);
+	}
+	else {
+		spdlog::warn("{}", pCallbackData->pMessage);
+	}
+
+	return VK_FALSE;
+}
+
+
 void Vulkan::InitVulkan(GLFWwindow* window)
 {
 	m_vulkanResources.reset(new VulkanResources);
 	CreateInstance();
+	CreateDebugging();
 	CreateSurface(window);
 	CreateDevice();
 	CreateSwapchain();
@@ -19,7 +34,6 @@ void Vulkan::Cleanup()
 
 	for (int i = 0; i < m_vulkanResources->swapchain.GetImageCount(); i++)
 	{
-		m_vulkanResources->device.destroyFence(m_vulkanResources->fences[i]);
 		m_vulkanResources->device.destroySemaphore(m_vulkanResources->semaphoreImageAquired[i]);
 		m_vulkanResources->device.destroySemaphore(m_vulkanResources->semaphoreRender[i]);
 	}
@@ -34,6 +48,10 @@ void Vulkan::Cleanup()
 	m_vulkanResources->swapchain.Destroy();
 	m_vulkanResources->device.destroy();
 	m_vulkanResources->instance.destroySurfaceKHR(m_vulkanResources->surface);
+
+	if (m_debug.debugUtilsMessenger != VK_NULL_HANDLE)
+		m_debug.vkDestroyDebugUtilsMessengerEXT(m_vulkanResources->instance, m_debug.debugUtilsMessenger, nullptr);
+
 	m_vulkanResources->instance.destroy();
 }
 
@@ -513,6 +531,20 @@ void Vulkan::CreateFramebuffers()
 	}
 }
 
+void Vulkan::CreateDebugging()
+{
+	m_debug.vkCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)m_vulkanResources->instance.getProcAddr("vkCreateDebugUtilsMessengerEXT");
+	m_debug.vkDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)m_vulkanResources->instance.getProcAddr("vkDestroyDebugUtilsMessengerEXT");
+
+	VkDebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCI{};
+	debugUtilsMessengerCI.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+	debugUtilsMessengerCI.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+	debugUtilsMessengerCI.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
+	debugUtilsMessengerCI.pfnUserCallback = debugUtilsMessengerCallback;
+
+	m_debug.vkCreateDebugUtilsMessengerEXT(m_vulkanResources->instance, &debugUtilsMessengerCI, nullptr, &m_debug.debugUtilsMessenger);
+}
+
 void Vulkan::CreateCommandPool()
 {
 	m_vulkanResources->commandPool = vko::VulkanCommandPool(m_vulkanResources->device, m_queueIDs.graphics.familyID, vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
@@ -530,7 +562,6 @@ void Vulkan::CreateFencesAndSemaphores()
 	{
 		m_vulkanResources->semaphoreImageAquired.push_back(m_vulkanResources->device.createSemaphore(vk::SemaphoreCreateInfo()));
 		m_vulkanResources->semaphoreRender.push_back(m_vulkanResources->device.createSemaphore(vk::SemaphoreCreateInfo()));
-		m_vulkanResources->fences.push_back(m_vulkanResources->device.createFence(vk::FenceCreateInfo(vk::FenceCreateFlagBits::eSignaled)));
 	}
 }
 
@@ -570,10 +601,10 @@ uint32_t Vulkan::GetMemoryTypeIndex(uint32_t typeFilter, vk::MemoryPropertyFlags
 
 vko::Image Vulkan::CreateImage(vk::ImageType imageType, vk::Format format, vk::Extent3D extent,
 	vk::ImageUsageFlags usage, vk::ImageAspectFlagBits aspectFlags, vk::ImageCreateFlags flags, vk::SampleCountFlagBits samples,
-	vk::MemoryPropertyFlags memoryFlags, int layerCount, vk::SharingMode sharingMode,
+	vk::MemoryPropertyFlags memoryFlags, int mipLevels, int layerCount, vk::SharingMode sharingMode,
 	vk::ImageTiling tiling)
 {
-	vk::ImageCreateInfo createInfo = vk::ImageCreateInfo(flags, imageType, format, extent, 1, layerCount, samples, tiling, usage, sharingMode, 0, nullptr);
+	vk::ImageCreateInfo createInfo = vk::ImageCreateInfo(flags, imageType, format, extent, mipLevels, layerCount, samples, tiling, usage, sharingMode, 0, nullptr);
 
 	vk::Image image = m_vulkanResources->device.createImage(createInfo);
 
@@ -584,7 +615,7 @@ vko::Image Vulkan::CreateImage(vk::ImageType imageType, vk::Format format, vk::E
 	viewCreateInfo.format = format;
 	viewCreateInfo.subresourceRange.aspectMask = aspectFlags;
 	viewCreateInfo.subresourceRange.baseMipLevel = 0;
-	viewCreateInfo.subresourceRange.levelCount = 1;
+	viewCreateInfo.subresourceRange.levelCount = mipLevels;
 	viewCreateInfo.subresourceRange.baseArrayLayer = 0;
 	viewCreateInfo.subresourceRange.layerCount = layerCount;
 
@@ -607,19 +638,77 @@ vko::Image Vulkan::CreateImage(vk::ImageType imageType, vk::Format format, vk::E
 
 	vk::ImageView imageView = m_vulkanResources->device.createImageView(viewCreateInfo);
 
-	return vko::Image(m_vulkanResources->device, image, imageView, imageMemory, allocInfo.allocationSize, extent, vk::ImageLayout::eUndefined, usage, memoryFlags);
+	return vko::Image(m_vulkanResources->device, m_vulkanResources->physicalDevice, image, imageView, imageMemory, allocInfo.allocationSize, extent, mipLevels, vk::ImageLayout::eUndefined, usage, memoryFlags);
+}
+
+void Vulkan::GenerateMipmaps(vko::Image image, vk::Filter mipMapFiltering, uint32_t mipLevels, uint32_t arrayLevels)
+{
+	vk::CommandBuffer cmdBuffer = m_vulkanResources->commandPool.AllocateCommandBuffer();
+	cmdBuffer.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
+
+	vk::ImageMemoryBarrier imgMemBarrier;
+
+	for (int i = 0; i < arrayLevels; i++)
+	{
+		int32_t mipWidth = image.extent.width;
+		int32_t mipHeight = image.extent.height;
+		int32_t mipDepth = image.extent.depth;
+		for (int j = 1; j < mipLevels; j++)
+		{
+			std::array<vk::Offset3D, 2> srcOffets = { vk::Offset3D(0, 0, 0), vk::Offset3D(mipWidth, mipHeight, mipDepth) };
+			std::array<vk::Offset3D, 2> dstOffets = { vk::Offset3D(0, 0, 0), vk::Offset3D(mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, mipDepth > 1 ? mipDepth / 2 : 1) };
+
+			vk::ImageBlit blitRegion = vk::ImageBlit(
+				vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, j - 1, i, 1), 
+				srcOffets,
+				vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, j, i, 1), 
+				dstOffets);
+
+			InsertImageMemoryBarrier(cmdBuffer, image.image, {}, vk::AccessFlagBits::eTransferWrite, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
+				vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, j, 1, i, 1));
+
+			cmdBuffer.blitImage(image.image, vk::ImageLayout::eTransferSrcOptimal, image.image, vk::ImageLayout::eTransferDstOptimal, 1, &blitRegion, mipMapFiltering);
+
+			InsertImageMemoryBarrier(cmdBuffer, image.image, vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eTransferRead, vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eTransferSrcOptimal,
+				vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, j, 1, i, 1));
+
+			if (mipWidth > 1)
+				mipWidth /= 2;
+			if (mipHeight > 1)
+				mipHeight /= 2;
+			if (mipDepth > 1)
+				mipDepth /= 2;
+		}
+	}
+
+	InsertImageMemoryBarrier(cmdBuffer, image.image, vk::AccessFlagBits::eTransferRead, vk::AccessFlagBits::eShaderRead, vk::ImageLayout::eTransferSrcOptimal, vk::ImageLayout::eShaderReadOnlyOptimal,
+		vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, mipLevels, 0, arrayLevels));
+
+	cmdBuffer.end();
+
+	vk::SubmitInfo submitInfo;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &cmdBuffer;
+	vk::Fence fence = m_vulkanResources->device.createFence(vk::FenceCreateInfo());
+
+	m_vulkanResources->queueGraphics.submit(submitInfo, fence);
+	m_vulkanResources->device.waitForFences(fence, true, UINT64_MAX);
+	m_vulkanResources->device.destroyFence(fence);
+
+	m_vulkanResources->commandPool.FreeCommandBuffers(cmdBuffer);
 }
 
 vko::Buffer Vulkan::CreateBuffer(uint32_t size, vk::BufferUsageFlags usage, const void* data, vk::MemoryPropertyFlags memoryFlags, vk::SharingMode sharingMode)
 {
 	vk::BufferCreateInfo createInfo = vk::BufferCreateInfo({}, size, usage);
 	vk::Buffer buffer = m_vulkanResources->device.createBuffer(createInfo);
-	vk::DeviceMemory bufferMemory = AllocateAndBindMemory(buffer, memoryFlags);
+	vk::MemoryAllocateInfo allocInfo;
+	vk::DeviceMemory bufferMemory = AllocateAndBindMemory(buffer, memoryFlags, &allocInfo);
 
 	if (data != nullptr)
 	{
 		void* bufData;
-		bufData = m_vulkanResources->device.mapMemory(bufferMemory, 0, size);
+		bufData = m_vulkanResources->device.mapMemory(bufferMemory, 0, allocInfo.allocationSize);
 		memcpy(bufData, data, size);
 		m_vulkanResources->device.unmapMemory(bufferMemory);
 	}
@@ -629,7 +718,7 @@ vko::Buffer Vulkan::CreateBuffer(uint32_t size, vk::BufferUsageFlags usage, cons
 
 void Vulkan::CopyBuffer(vko::Buffer srcBuffer, vko::Buffer dstBuffer, vk::DeviceSize size)
 {
-	vk::CommandBuffer cmdBuffer = m_vulkanResources->commandPoolTransfer.AllocateCommandBuffer();
+	vk::CommandBuffer cmdBuffer = m_vulkanResources->commandPool.AllocateCommandBuffer();
 	cmdBuffer.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
 	cmdBuffer.copyBuffer(srcBuffer.buffer, dstBuffer.buffer, vk::BufferCopy(0, 0, size));
 	cmdBuffer.end();
@@ -638,9 +727,9 @@ void Vulkan::CopyBuffer(vko::Buffer srcBuffer, vko::Buffer dstBuffer, vk::Device
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &cmdBuffer;
 
-	m_vulkanResources->queueTransfer.submit({ submitInfo }, {});
-	m_vulkanResources->queueTransfer.waitIdle();
-	m_vulkanResources->commandPoolTransfer.FreeCommandBuffers({ cmdBuffer });
+	m_vulkanResources->queueGraphics.submit({ submitInfo }, {});
+	m_vulkanResources->queueGraphics.waitIdle();
+	m_vulkanResources->commandPool.FreeCommandBuffers({ cmdBuffer });
 }
 
 vk::ShaderModule Vulkan::CompileShader(const std::string& filename)
@@ -662,7 +751,7 @@ vk::ShaderModule Vulkan::CompileShader(const std::string& filename)
 	return m_vulkanResources->device.createShaderModule(moduleCreateInfo);
 }
 
-vko::Image Vulkan::CreateTexture(vk::ImageType imageType, vk::Format format, const char * filePath, vk::ImageUsageFlags usage)
+vko::Image Vulkan::CreateTexture(vk::ImageType imageType, vk::Format format, const char * filePath, vk::ImageUsageFlags usage, bool generateMipMaps, vk::Filter mipMapFilter)
 {
 	int width;
 	int height;
@@ -672,56 +761,70 @@ vko::Image Vulkan::CreateTexture(vk::ImageType imageType, vk::Format format, con
 	void* data = stbi_load(filePath, &width, &height, &channels, 4);
 
 	int memorySize = width * height * sizeof(unsigned char) * 4;
+	int mipLevels = 1;
 
-	//	if (!(usage & vk::ImageUsageFlagBits::eTransferSrc))
-	//		usage |= vk::ImageUsageFlagBits::eTransferSrc;
+	vk::FormatProperties props = m_vulkanResources->physicalDevice.getFormatProperties(format);
+	assert(props.optimalTilingFeatures & vk::FormatFeatureFlagBits::eBlitSrc);
+	assert(props.optimalTilingFeatures & vk::FormatFeatureFlagBits::eBlitDst);
+
+	if (generateMipMaps)
+	{
+		if (!(usage & vk::ImageUsageFlagBits::eTransferSrc))
+			usage |= vk::ImageUsageFlagBits::eTransferSrc;
+
+		if (!(usage & vk::ImageUsageFlagBits::eTransferDst))
+			usage |= vk::ImageUsageFlagBits::eTransferDst;
+
+		mipLevels = static_cast<uint32_t>(std::floor(log2(std::max(width, height)))) + 1;
+	}
 
 	vk::DeviceMemory imageMemory;
-	vko::Image textureImage = CreateImage(imageType, format, vk::Extent3D(width, height, 1), usage, vk::ImageAspectFlagBits::eColor, {}, vk::SampleCountFlagBits::e1, vk::MemoryPropertyFlagBits::eDeviceLocal);
+	vko::Image textureImage = CreateImage(imageType, format, vk::Extent3D(width, height, 1), usage, vk::ImageAspectFlagBits::eColor, {}, vk::SampleCountFlagBits::e1, vk::MemoryPropertyFlagBits::eDeviceLocal, mipLevels);
 	vko::Buffer imageBuffer = CreateBuffer(memorySize, vk::BufferUsageFlagBits::eTransferSrc, data);
+	stbi_image_free(data);
 
 	vk::CommandBuffer cmdBuffer = m_vulkanResources->commandPoolTransfer.AllocateCommandBuffer();
 	cmdBuffer.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
 
-	vk::BufferMemoryBarrier bufBarrier = vk::BufferMemoryBarrier(
-		vk::AccessFlagBits::eHostWrite, vk::AccessFlagBits::eTransferRead,
-		0U, 0U,
-		imageBuffer.buffer, 0, imageBuffer.size
-	);
-
-	vk::ImageMemoryBarrier imgBarrier = vk::ImageMemoryBarrier({}, vk::AccessFlagBits::eTransferWrite,
-		vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
-		0U, 0U, textureImage.image,
-		vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
-
-	cmdBuffer.pipelineBarrier(
-		vk::PipelineStageFlagBits::eHost, vk::PipelineStageFlagBits::eTransfer,
-		{}, {}, bufBarrier, imgBarrier);
+	InsertImageMemoryBarrier(cmdBuffer, textureImage.image, {}, vk::AccessFlagBits::eTransferWrite, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
+		vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
 
 	vk::BufferImageCopy regions = vk::BufferImageCopy(0, width, height, 
 		vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1), 
 		vk::Offset3D(0, 0, 0), vk::Extent3D(width, height, 1));
 
 	cmdBuffer.copyBufferToImage(imageBuffer.buffer, textureImage.image, vk::ImageLayout::eTransferDstOptimal, regions);
+		
+	InsertImageMemoryBarrier(cmdBuffer, textureImage.image, 
+		vk::AccessFlagBits::eTransferWrite, mipLevels == 1 ? vk::AccessFlagBits::eShaderRead : vk::AccessFlagBits::eTransferRead, 
+		vk::ImageLayout::eTransferDstOptimal, mipLevels == 1 ? vk::ImageLayout::eShaderReadOnlyOptimal : vk::ImageLayout::eTransferSrcOptimal,
+		vk::PipelineStageFlagBits::eTransfer, mipLevels == 1 ? vk::PipelineStageFlagBits::eFragmentShader : vk::PipelineStageFlagBits::eTransfer, 
+		vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
 
 	cmdBuffer.end();
 
 	vk::SubmitInfo submitInfo = vk::SubmitInfo();
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &cmdBuffer;
+	vk::Fence fence = m_vulkanResources->device.createFence(vk::FenceCreateInfo());
 
-	m_vulkanResources->queueTransfer.submit({ submitInfo }, {});
-	m_vulkanResources->queueTransfer.waitIdle();
+	m_vulkanResources->queueTransfer.submit({ submitInfo }, fence);
+	m_vulkanResources->device.waitForFences(fence, true, UINT64_MAX);
+	m_vulkanResources->device.destroyFence(fence);
+
+	if(mipLevels > 1)
+		GenerateMipmaps(textureImage, mipMapFilter, mipLevels, 1);
+	   
 	m_vulkanResources->commandPoolTransfer.FreeCommandBuffers({ cmdBuffer });
 
 	imageBuffer.Destroy();
 
-	stbi_image_free(data);
+	textureImage.SetImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 
 	return textureImage;
 }
 
-vko::Image Vulkan::Create2DTextureArray(vk::Format format, std::vector<const char*> filePaths, vk::ImageUsageFlags usage)
+vko::Image Vulkan::Create2DTextureArray(vk::Format format, std::vector<const char*> filePaths, vk::ImageUsageFlags usage, bool generateMipMaps, vk::Filter mipMapFilter)
 {
 	stbi_set_flip_vertically_on_load(false);
 	struct ImageInfo {
@@ -747,6 +850,15 @@ vko::Image Vulkan::Create2DTextureArray(vk::Format format, std::vector<const cha
 		totalMemorySize += imageInfo.back().size;
 	}
 
+	int mipLevels = 1;
+	if (generateMipMaps)
+	{
+		if (!(usage & vk::ImageUsageFlagBits::eTransferSrc))
+			usage |= vk::ImageUsageFlagBits::eTransferSrc;
+
+		mipLevels = static_cast<uint32_t>(std::floor(log2(std::max(width, height)))) + 1;
+	}
+
 	vk::BufferCreateInfo createInfo = vk::BufferCreateInfo({}, totalMemorySize, vk::BufferUsageFlagBits::eTransferSrc);
 	vk::Buffer buffer = m_vulkanResources->device.createBuffer(createInfo);
 	vk::DeviceMemory bufferMemory = AllocateAndBindMemory(buffer, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
@@ -767,25 +879,13 @@ vko::Image Vulkan::Create2DTextureArray(vk::Format format, std::vector<const cha
 
 	vk::DeviceMemory imageMemory;
 	vko::Image textureImage = CreateImage(vk::ImageType::e2D, format, vk::Extent3D(width, height, 1), usage, vk::ImageAspectFlagBits::eColor,
-		{}, vk::SampleCountFlagBits::e1, vk::MemoryPropertyFlagBits::eDeviceLocal, imageInfo.size());
+		{}, vk::SampleCountFlagBits::e1, vk::MemoryPropertyFlagBits::eDeviceLocal, mipLevels, imageInfo.size());
 
 	vk::CommandBuffer cmdBuffer = m_vulkanResources->commandPoolTransfer.AllocateCommandBuffer();
 	cmdBuffer.begin(vk::CommandBufferBeginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit));
 
-	vk::BufferMemoryBarrier bufBarrier = vk::BufferMemoryBarrier(
-		vk::AccessFlagBits::eHostWrite, vk::AccessFlagBits::eTransferRead,
-		0U, 0U,
-		imageBuffer.buffer, 0, imageBuffer.size
-	);
-
-	vk::ImageMemoryBarrier imgBarrier = vk::ImageMemoryBarrier({}, vk::AccessFlagBits::eTransferWrite,
-		vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
-		0U, 0U, textureImage.image,
-		vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, imageInfo.size()));
-
-	cmdBuffer.pipelineBarrier(
-		vk::PipelineStageFlagBits::eHost, vk::PipelineStageFlagBits::eTransfer,
-		{}, {}, bufBarrier, imgBarrier);
+	InsertImageMemoryBarrier(cmdBuffer, textureImage.image, {}, vk::AccessFlagBits::eTransferWrite, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
+		vk::PipelineStageFlagBits::eHost, vk::PipelineStageFlagBits::eTransfer, vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, mipLevels, 0, imageInfo.size()));
 
 	std::vector<vk::BufferImageCopy> regions;
 	offset = 0;
@@ -799,18 +899,72 @@ vko::Image Vulkan::Create2DTextureArray(vk::Format format, std::vector<const cha
 
 	cmdBuffer.copyBufferToImage(imageBuffer.buffer, textureImage.image, vk::ImageLayout::eTransferDstOptimal, regions);
 
+	InsertImageMemoryBarrier(cmdBuffer, textureImage.image,
+		vk::AccessFlagBits::eTransferWrite, mipLevels == 1 ? vk::AccessFlagBits::eShaderRead : vk::AccessFlagBits::eTransferRead,
+		vk::ImageLayout::eTransferDstOptimal, mipLevels == 1 ? vk::ImageLayout::eShaderReadOnlyOptimal : vk::ImageLayout::eTransferSrcOptimal,
+		vk::PipelineStageFlagBits::eTransfer, mipLevels == 1 ? vk::PipelineStageFlagBits::eFragmentShader : vk::PipelineStageFlagBits::eTransfer,
+		vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, imageInfo.size()));
+
 	cmdBuffer.end();
 
 	vk::SubmitInfo submitInfo = vk::SubmitInfo();
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &cmdBuffer;
+	vk::Fence fence = m_vulkanResources->device.createFence(vk::FenceCreateInfo());
 
-	m_vulkanResources->queueTransfer.submit({ submitInfo }, {});
-	m_vulkanResources->queueTransfer.waitIdle();
+	m_vulkanResources->queueTransfer.submit({ submitInfo }, fence);
+	m_vulkanResources->device.waitForFences(fence, true, UINT64_MAX);
+	m_vulkanResources->device.destroyFence(fence);
+
+	if (mipLevels > 1)
+		GenerateMipmaps(textureImage, mipMapFilter, mipLevels, imageInfo.size());
+	
 	m_vulkanResources->commandPoolTransfer.FreeCommandBuffers({ cmdBuffer });
 
 	imageBuffer.Destroy();
-	
 
+	textureImage.SetImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
+	
 	return textureImage;
+}
+
+void Vulkan::InsertImageMemoryBarrier(vk::CommandBuffer cmdbuffer, vk::Image image, vk::AccessFlags srcAccessMask, vk::AccessFlags dstAccessMask, vk::ImageLayout oldImageLayout, vk::ImageLayout newImageLayout, vk::PipelineStageFlags srcStageMask, vk::PipelineStageFlags dstStageMask, vk::ImageSubresourceRange subresourceRange)
+{
+	vk::ImageMemoryBarrier imageMemoryBarrier = vk::ImageMemoryBarrier();
+	imageMemoryBarrier.srcAccessMask = srcAccessMask;
+	imageMemoryBarrier.dstAccessMask = dstAccessMask;
+	imageMemoryBarrier.oldLayout = oldImageLayout;
+	imageMemoryBarrier.newLayout = newImageLayout;
+	imageMemoryBarrier.image = image;
+	imageMemoryBarrier.subresourceRange = subresourceRange;
+	imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+	cmdbuffer.pipelineBarrier(
+		srcStageMask,
+		dstStageMask,
+		{},
+		0, nullptr,
+		0, nullptr,
+		1, &imageMemoryBarrier);
+}
+
+void Vulkan::InsertBufferMemoryBarrier(vk::CommandBuffer cmdbuffer, vko::Buffer buffer, vk::AccessFlags srcAccessMask, vk::AccessFlags dstAccessMask, vk::PipelineStageFlags srcStageMask, vk::PipelineStageFlags dstStageMask, uint32_t srcQueue, uint32_t dstQueue)
+{
+	vk::BufferMemoryBarrier barrier = vk::BufferMemoryBarrier();
+	barrier.srcAccessMask = srcAccessMask;
+	barrier.dstAccessMask = dstAccessMask;
+	barrier.buffer = buffer.buffer;
+	barrier.offset = 0;
+	barrier.size = buffer.size;
+	barrier.srcQueueFamilyIndex = srcQueue;
+	barrier.dstQueueFamilyIndex = dstQueue;
+
+	cmdbuffer.pipelineBarrier(
+		srcStageMask,
+		dstStageMask,
+		{},
+		0, nullptr,
+		1, &barrier,
+		0, nullptr);
 }

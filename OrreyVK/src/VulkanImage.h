@@ -9,12 +9,14 @@ namespace vko {
 	class Image {
 	private:
 		vk::Device device;
+		vk::PhysicalDevice physicalDevice;
 	public:
 		vk::Image image;
 		vk::ImageView imageView;
 		vk::DeviceMemory memory;
 		vk::DeviceSize size = 0;
 		vk::Extent3D extent;
+		int mipLevels = 1;
 
 		vk::ImageUsageFlags usageFlags = {};
 		vk::MemoryPropertyFlags memoryPropertyFlags = {};
@@ -24,8 +26,8 @@ namespace vko {
 
 		Image() {};
 
-		Image(vk::Device device, vk::Image image, vk::ImageView imageView, vk::DeviceMemory memory, vk::DeviceSize size, vk::Extent3D extent, vk::ImageLayout currentLayout, vk::ImageUsageFlags usageFlags, vk::MemoryPropertyFlags memoryPropertyFlags) :
-			device(device), image(image), imageView(imageView), memory(memory), size(size), extent(extent), currentLayout(currentLayout), usageFlags(usageFlags), memoryPropertyFlags(memoryPropertyFlags)
+		Image(vk::Device device, vk::PhysicalDevice physicalDevice, vk::Image image, vk::ImageView imageView, vk::DeviceMemory memory, vk::DeviceSize size, vk::Extent3D extent, int mipLevels, vk::ImageLayout currentLayout, vk::ImageUsageFlags usageFlags, vk::MemoryPropertyFlags memoryPropertyFlags) :
+			device(device), physicalDevice(physicalDevice), image(image), imageView(imageView), memory(memory), size(size), extent(extent), mipLevels(mipLevels), currentLayout(currentLayout), usageFlags(usageFlags), memoryPropertyFlags(memoryPropertyFlags)
 		{
 			vk::SamplerCreateInfo samplerCreateInfo = vk::SamplerCreateInfo();
 			samplerCreateInfo.magFilter = vk::Filter::eLinear;
@@ -39,7 +41,13 @@ namespace vko {
 			samplerCreateInfo.anisotropyEnable = false;
 			samplerCreateInfo.compareOp = vk::CompareOp::eNever;
 			samplerCreateInfo.minLod = 0.0f;
-			samplerCreateInfo.maxLod = 1.0f;
+			samplerCreateInfo.maxLod = float(mipLevels);
+
+			if (mipLevels > 1 && physicalDevice.getFeatures().samplerAnisotropy)
+			{
+				samplerCreateInfo.maxAnisotropy = physicalDevice.getProperties().limits.maxSamplerAnisotropy;
+				samplerCreateInfo.anisotropyEnable = true;
+			}
 
 			sampler = device.createSampler(samplerCreateInfo);
 			descriptor = vk::DescriptorImageInfo(sampler, imageView, currentLayout);
@@ -48,6 +56,12 @@ namespace vko {
 		void SetDescriptor(vk::Sampler sampler, vk::ImageView imageView, vk::ImageLayout layout)
 		{
 			descriptor = vk::DescriptorImageInfo(sampler, imageView, layout);
+		}
+
+		void SetImageLayout(vk::ImageLayout layout)
+		{
+			currentLayout = layout;
+			SetDescriptor(sampler, imageView, layout);
 		}
 
 		void Destroy()
