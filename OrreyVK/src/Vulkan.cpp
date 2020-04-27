@@ -17,7 +17,9 @@ void Vulkan::InitVulkan(GLFWwindow* window)
 {
 	m_vulkanResources.reset(new VulkanResources);
 	CreateInstance();
+#if _DEBUG
 	CreateDebugging();
+#endif
 	CreateSurface(window);
 	CreateDevice();
 	CreateSwapchain();
